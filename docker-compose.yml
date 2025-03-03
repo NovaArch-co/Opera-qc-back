@@ -1,0 +1,86 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:latest
+    container_name: postgres
+    environment:
+      POSTGRES_USER: myuser
+      POSTGRES_PASSWORD: mypassword
+      POSTGRES_DB: mydb
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    networks:
+      - app-network
+
+  minio:
+    image: minio/minio:latest
+    container_name: minio
+    environment:
+      MINIO_ACCESS_KEY: minioaccesskey
+      MINIO_SECRET_KEY: miniosecretkey
+    volumes:
+      - minio_data:/data
+    command: server /data --console-address ":9001"
+    networks:
+      - app-network
+
+  adminer:
+    image: adminer:latest
+    container_name: adminer
+    ports:
+      - "8080:8080"
+    networks:
+      - app-network
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: backend-qc
+    environment:
+      # General Configuration
+      NODE_ENV: "test" # Options: 'development', 'production'
+      PORT: "8081"
+      HOST: "0.0.0.0" # Ensures the container is accessible externally
+
+      # Database Configuration
+      DATABASE_URL: "postgresql://myuser:mypassword@postgres:5432/mydb?schema=public"
+
+      # CORS Configuration
+      CORS_ORIGIN: "http://localhost:*"
+
+      # Authentication
+      JWT_SECRET: "hi"
+
+      # Rate Limiting
+      COMMON_RATE_LIMIT_WINDOW_MS: "1000"
+      COMMON_RATE_LIMIT_MAX_REQUESTS: "20"
+
+      # File Server
+      FILE_SERVER_BASE_URL: "http://185.243.48.218:4567/"
+
+      # MinIO Configuration
+      MINIO_ENDPOINT: "minio"
+      MINIO_PORT: "9000"
+      MINIO_ACCESS_KEY: "minioaccesskey"
+      MINIO_SECRET_KEY: "miniosecretkey"
+    ports:
+      - "8081:8081"
+    depends_on:
+      - postgres
+      - minio
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+    driver: local
+  minio_data:
+    driver: local

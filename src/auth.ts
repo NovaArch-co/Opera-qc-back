@@ -3,6 +3,7 @@ import { ExtractJwt, Strategy as JwtStrategy, type StrategyOptionsWithoutRequest
 
 import { PrismaClient } from "@prisma/client";
 import dotenv from "dotenv";
+import {env} from "@/common/utils/envConfig";
 
 dotenv.config();
 
@@ -10,12 +11,12 @@ const prisma = new PrismaClient();
 
 export const jwtOpts: StrategyOptionsWithoutRequest = {
   jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
-  secretOrKey: process.env.JWT_SECRET!,
+  secretOrKey: env.JWT_SECRET!,
 };
 
 export const jwtRefreshOpts: StrategyOptionsWithoutRequest = {
   jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
-  secretOrKey: process.env.JWT_REFRESH_SECRET!,
+  secretOrKey: env.JWT_SECRET!,
 };
 
 export const generateAccessToken = (payload: any) => {
