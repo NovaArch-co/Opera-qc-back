@@ -9,10 +9,6 @@ RUN apt-get update && \
 # Set working directory
 WORKDIR /usr/src/app
 
-RUN npm install --legacy-peer-deps
-RUN npm shrinkwrap
-
-
 # Copy package files
 COPY package*.json ./
 
@@ -32,5 +28,7 @@ RUN npx prisma generate
 # Expose application port
 EXPOSE 8081
 
+RUN npm run build
+
 # Start the application
-CMD ["npm", "run", "dev"]
+CMD ["npm", "run", "start"]

@@ -11,7 +11,7 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     ports:
-      - "5432:5432"
+      - "5433:5432"
     networks:
       - app-network
 
@@ -27,14 +27,6 @@ services:
     networks:
       - app-network
 
-  adminer:
-    image: adminer:latest
-    container_name: adminer
-    ports:
-      - "8080:8080"
-    networks:
-      - app-network
-
   app:
     build:
       context: .
@@ -47,7 +39,7 @@ services:
       HOST: "0.0.0.0" # Ensures the container is accessible externally
 
       # Database Configuration
-      DATABASE_URL: "postgresql://myuser:mypassword@postgres:5432/mydb?schema=public"
+      DATABASE_URL: "postgresql://myuser:mypassword@postgres:5433/mydb?schema=public"
 
       # CORS Configuration
       CORS_ORIGIN: "http://localhost:*"
