@@ -190,7 +190,6 @@ class SessionEventController {
             const result = await prisma.$queryRaw`
             WITH filtered_data AS (
                 SELECT * FROM "SessionEvent"
-                WHERE date >= NOW() - INTERVAL '7 days'
             )
             , topic_distribution AS (
                 SELECT 
