@@ -16,6 +16,7 @@ import {sessionEventRouter} from "@/api/session/sessionRouter";
 
 const logger = pino({ name: "server start" });
 const app: Express = express();
+console.log("Swagger URL:", env.SWAGGER_URL);
 
 // Set the application to trust the reverse proxy
 app.set("trust proxy", true);
