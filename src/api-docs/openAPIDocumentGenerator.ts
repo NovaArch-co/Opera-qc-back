@@ -25,6 +25,9 @@ export function generateOpenAPIDocument() {
         },{
             url:env.SWAGGER_URL,
             description:"prod"
+        },{
+            url:"https://qc.novaarch.com",
+            description:"dev"
         }],
         // security: [{ [bearerAuth.name]: [] }],
         externalDocs: {
