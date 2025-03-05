@@ -23,5 +23,5 @@ if (ADMIN_USERNAME && ADMIN_PASSWORD) {
     swaggerUi.setup(openAPIDocument, {}),
   );
 } else {
-  openAPIRouter.use("/", swaggerUi.serveWithOptions({ redirect: false,cacheControl:false }), swaggerUi.setup(openAPIDocument, {}));
+  openAPIRouter.use("/swagger", swaggerUi.serveWithOptions({ redirect: false,cacheControl:false }), swaggerUi.setup(openAPIDocument, {}));
 }
