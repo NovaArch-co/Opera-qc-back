@@ -3,6 +3,7 @@ import {OpenApiGeneratorV3, OpenAPIRegistry} from "@asteasolutions/zod-to-openap
 import {authRegistry} from "@/api/auth/authRouter";
 import {userRegistry} from "@/api/user/userRouter";
 import {sessionEventRegistry} from "@/api/session/sessionRouter";
+import {env} from "@/common/utils/envConfig";
 
 export function generateOpenAPIDocument() {
     const registry = new OpenAPIRegistry([
@@ -18,6 +19,9 @@ export function generateOpenAPIDocument() {
             version: "1.0.0",
             title: "Swagger API",
         },
+        servers:[{
+            url:env.SWAGGER_URL,
+        }],
         // security: [{ [bearerAuth.name]: [] }],
         externalDocs: {
             description: "View the raw OpenAPI Specification in JSON format",
