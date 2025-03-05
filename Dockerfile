@@ -1,34 +1,29 @@
 FROM node:22.12.0-slim
 
-# Install system dependencies needed for bcrypt
 RUN apt-get update && \
-    apt-get install -y ffmpeg libssl3 python3 make g++ build-essential && \
+    apt-get install -y ffmpeg libssl3 && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
-# Set working directory
+# Create app directory
 WORKDIR /usr/src/app
 
-# Copy package files
+# Copy package.json and package-lock.json
 COPY package*.json ./
 
-# Install dependencies
-RUN --mount=type=cache,target=/root/.npm npm ci --legacy-peer-deps
+# Install app dependencies
+RUN --mount=type=cache,target=/root/.npm npm ci
 
-# Ensure bcrypt is rebuilt correctly
-RUN npm rebuild bcrypt --build-from-source
-
-# Copy the rest of the application
+# Bundle app source
 COPY . .
 
-# Build TypeScript
-RUN npm i
+# Build the TypeScript files
+RUN npm run build
 RUN npx prisma generate
 
-# Expose application port
+# Expose port 8080
 EXPOSE 8081
 
-RUN npm run build
+# Start the app
+CMD npm run start
 
-# Start the application
-CMD ["npm", "run", "start"]

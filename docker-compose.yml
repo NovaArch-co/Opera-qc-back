@@ -30,7 +30,7 @@ services:
   app:
     build:
       context: .
-      dockerfile: Dockerfile.alt
+      dockerfile: Dockerfile
     container_name: backend-qc
     environment:
       # General Configuration
