@@ -7,7 +7,7 @@ import expressBasicAuth from "express-basic-auth";
 export const openAPIRouter: Router = express.Router();
 const openAPIDocument = generateOpenAPIDocument();
 const { ADMIN_USERNAME, ADMIN_PASSWORD } = process.env;
-openAPIRouter.get("/swagger.json", (_req: Request, res: Response) => {
+openAPIRouter.get("/docs/swagger.json", (_req: Request, res: Response) => {
   res.setHeader("Content-Type", "application/json");
   res.send(openAPIDocument);
 });
