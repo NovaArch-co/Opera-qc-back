@@ -30,7 +30,7 @@ services:
   app:
     build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.alt
     container_name: backend-qc
     environment:
       # General Configuration
@@ -61,6 +61,7 @@ services:
       MINIO_SECRET_KEY: "miniosecretkey"
     ports:
       - "8081:8081"
+    restart: unless-stopped
     depends_on:
       - postgres
       - minio

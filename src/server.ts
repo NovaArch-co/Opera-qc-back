@@ -29,7 +29,6 @@ passport.use(passportConfig);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cors({ origin: env.CORS_ORIGIN, credentials: true }));
-app.use(helmet());
 app.use(rateLimiter);
 
 // Request logging
@@ -43,8 +42,10 @@ app.use("/api/sessions",passport.authenticate("jwt", { session: false }), sessio
 
 // Swagger UI
 app.use("/api/docs", openAPIRouter);
+app.use(helmet());
 
 // Error handlers
 app.use(errorHandler());
+
 
 export { app, logger };
