@@ -20,9 +20,6 @@ export function generateOpenAPIDocument() {
             title: "Swagger API",
         },
         servers: [{
-            url: env.SWAGGER_URL,
-            description: "prod"
-        }, {
             url: "https://qc.novaarchai.com",
             description: "dev"
         }],
