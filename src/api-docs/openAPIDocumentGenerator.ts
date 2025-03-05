@@ -19,15 +19,12 @@ export function generateOpenAPIDocument() {
             version: "1.0.0",
             title: "Swagger API",
         },
-        servers:[{
-            url:env.SWAGGER_URL,
-            description:"domain"
-        },{
-            url:env.SWAGGER_URL,
-            description:"prod"
-        },{
-            url:"https://qc.novaarch.com",
-            description:"dev"
+        servers: [{
+            url: env.SWAGGER_URL,
+            description: "prod"
+        }, {
+            url: "https://qc.novaarchai.com",
+            description: "dev"
         }],
         // security: [{ [bearerAuth.name]: [] }],
         externalDocs: {

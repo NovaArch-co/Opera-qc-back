@@ -6,7 +6,7 @@ dotenv.config();
 export const env = cleanEnv(process.env, {
   NODE_ENV: str({ devDefault: testOnly("test"), choices: ["development", "production", "test"] }),
   HOST: host({ devDefault: testOnly("localhost") }),
-  SWAGGER_URL: host({ devDefault: testOnly("https://qc.novaarch.com") }),
+  SWAGGER_URL: host({ devDefault: testOnly("https://qc.novaarchai.com") }),
   PORT: port({ devDefault: testOnly(3000) }),
   CORS_ORIGIN: str({ devDefault: testOnly("http://localhost:3000") }),
   FILE_SERVER_BASE_URL: str({ devDefault: testOnly("http://185.243.48.218:4567/") }),
