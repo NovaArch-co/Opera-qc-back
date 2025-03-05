@@ -68,7 +68,7 @@ services:
     networks:
       - app-network
     volumes:
-      - ./src/api/session/audio_files:/app/src/api/session/audio_files
+      - ./src/api/session/audio_files:/usr/src/app/dist/audio_files
 
 networks:
   app-network:
