@@ -21,6 +21,10 @@ export function generateOpenAPIDocument() {
         },
         servers:[{
             url:env.SWAGGER_URL,
+            description:"domain"
+        },{
+            url:env.SWAGGER_URL,
+            description:"prod"
         }],
         // security: [{ [bearerAuth.name]: [] }],
         externalDocs: {
