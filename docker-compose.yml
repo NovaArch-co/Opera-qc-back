@@ -67,6 +67,8 @@ services:
       - minio
     networks:
       - app-network
+    volumes:
+      - ./src/api/session/audio_files:/app/src/api/session/audio_files
 
 networks:
   app-network:
