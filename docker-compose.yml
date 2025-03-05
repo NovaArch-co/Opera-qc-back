@@ -2,7 +2,7 @@ version: '3.8'
 
 services:
   postgres:
-    image: postgres:latest
+    image: bitnami/postgresql:17.2.0
     container_name: postgres
     environment:
       POSTGRES_USER: myuser
@@ -16,7 +16,7 @@ services:
       - app-network
 
   minio:
-    image: minio/minio:latest
+    image: quay.io/minio/minio:RELEASE.2024-12-18T13-15-44Z
     container_name: minio
     environment:
       MINIO_ACCESS_KEY: minioaccesskey
