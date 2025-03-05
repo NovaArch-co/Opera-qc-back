@@ -32,7 +32,7 @@ export function generateOpenAPIDocument() {
         // security: [{ [bearerAuth.name]: [] }],
         externalDocs: {
             description: "View the raw OpenAPI Specification in JSON format",
-            url: "/swagger.json",
+            url: "https://qc.novaarchai.com/api/docs/api/swagger.json",
         },
     });
 }
