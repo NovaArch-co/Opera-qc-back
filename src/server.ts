@@ -19,6 +19,7 @@ const app: Express = express();
 console.log("Swagger URL:", env.SWAGGER_URL);
 
 // Set the application to trust the reverse proxy
+app.use(cors());
 app.set("trust proxy", true);
 
 // Setting up authentication handler
