@@ -91,7 +91,7 @@ class SessionEventController {
 
             const analysisResponse = await sendToAnalysisAPI(transcribeResponse);
 
-            const parsedAnalysis = AnalysisResponseSchema.safeParse(analysisResponse.analysis);
+            const parsedAnalysis = AnalysisResponseSchema.safeParse(analysisResponse);
             if (!parsedAnalysis.success) {
                 console.error("Invalid Analysis Data:", parsedAnalysis.error.format());
             } else {
@@ -99,7 +99,7 @@ class SessionEventController {
             }
 
             const parsedTranscriptionData = parsedTranscription.data
-            const parsedAnalysisData = parsedAnalysis.data
+            const parsedAnalysisData = parsedAnalysis.data?.analysis
 
 
             if (fileUrlIn === "" || fileUrlOut === "") {
@@ -136,7 +136,7 @@ class SessionEventController {
                     keyWords: parsedAnalysisData.key_words || [],
                     routinCheckStart: parsedAnalysisData.routin_check_start?.[0] || null,
                     routinCheckEnd: parsedAnalysisData.routin_check_end?.[0] || null,
-                    forbiddenWords: parsedAnalysisData.forbidden_words ? JSON.stringify(parsedAnalysisData.forbidden_words) : "{}", // Convert to JSON string
+                    forbiddenWords: parsedAnalysisData.forbidden_words ? parsedAnalysisData.forbidden_words : {},
                 },
             });
 
@@ -164,9 +164,11 @@ class SessionEventController {
             if (!sessionEvent) {
                 return handleServiceResponse(ServiceResponse.failure("Session event not found", {}, StatusCodes.NOT_FOUND), res);
             }
+
             sessionEvent = {
                 ...sessionEvent,
-                forbiddenWords: sessionEvent.forbiddenWords ? JSON.parse(sessionEvent.forbiddenWords) : {},
+                forbiddenWords: sessionEvent.forbiddenWords ? sessionEvent.forbiddenWords : {},
+                topic: (Object.keys(sessionEvent.topic).length > 0) ? Object.keys(sessionEvent.topic)[0] : ""
             }
             const serviceResponse = ServiceResponse.success("Session event retrieved successfully", sessionEvent);
             return handleServiceResponse(serviceResponse, res);
@@ -178,8 +180,12 @@ class SessionEventController {
 
     public getSessions: RequestHandler = async (req: Request, res: Response) => {
         try {
-            const sessionEvent = await prisma.sessionEvent.findMany({});
-
+            let sessionEvent = await prisma.sessionEvent.findMany({});
+            sessionEvent = sessionEvent.map(event => ({
+                ...event,
+                forbiddenWords: event.forbiddenWords ? event.forbiddenWords : {},
+                topic: Object.keys(event.topic).length > 0 ? Object.keys(event.topic)[0] : ""
+            }));
             const serviceResponse = ServiceResponse.success("Session events retrieved successfully", sessionEvent);
             return handleServiceResponse(serviceResponse, res);
         } catch (error) {
@@ -234,19 +240,19 @@ class SessionEventController {
                 ORDER BY count DESC
                 LIMIT 10
             )
-            , forbidden_words_count AS (
+            , key_words_count AS (
                 SELECT 
-                    unnest("forbiddenWords") AS forbidden_word,
+                    unnest("keyWords") AS key_words,
                     COUNT(*) AS count
                 FROM filtered_data
-                GROUP BY forbidden_word
+                GROUP BY key_words
                 ORDER BY count DESC
             ), forbidden_words_count AS (
                 SELECT 
                     key AS forbidden_word,
                     SUM(value::int) AS count
                 FROM filtered_data,
-                LATERAL jsonb_each(forbiddenWords)
+                LATERAL jsonb_each("forbiddenWords")
                 GROUP BY key
                 ORDER BY count DESC
                )
