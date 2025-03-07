@@ -42,5 +42,5 @@ model SessionEvent {
   keyWords         String[]
   routinCheckStart String?
   routinCheckEnd   String?
-  forbiddenWords   String[]
+  forbiddenWords   Json?
 }

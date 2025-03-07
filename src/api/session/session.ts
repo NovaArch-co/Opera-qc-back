@@ -101,6 +101,7 @@ class SessionEventController {
             const parsedTranscriptionData = parsedTranscription.data
             const parsedAnalysisData = parsedAnalysis.data
 
+
             if (fileUrlIn === "" || fileUrlOut === "") {
                 return handleServiceResponse(
                     ServiceResponse.failure("Error creating url in or out session event", null, StatusCodes.INTERNAL_SERVER_ERROR),
@@ -135,8 +136,7 @@ class SessionEventController {
                     keyWords: parsedAnalysisData.key_words || [],
                     routinCheckStart: parsedAnalysisData.routin_check_start?.[0] || null,
                     routinCheckEnd: parsedAnalysisData.routin_check_end?.[0] || null,
-                    forbiddenWords: parsedAnalysisData.forbidden_words || [],
-
+                    forbiddenWords: parsedAnalysisData.forbidden_words ? JSON.stringify(parsedAnalysisData.forbidden_words) : "{}", // Convert to JSON string
                 },
             });
 
@@ -157,14 +157,17 @@ class SessionEventController {
         const {id} = req.params;
 
         try {
-            const sessionEvent = await prisma.sessionEvent.findUnique({
+            let sessionEvent = await prisma.sessionEvent.findUnique({
                 where: {id: Number(id)},
             });
 
             if (!sessionEvent) {
                 return handleServiceResponse(ServiceResponse.failure("Session event not found", {}, StatusCodes.NOT_FOUND), res);
             }
-
+            sessionEvent = {
+                ...sessionEvent,
+                forbiddenWords: sessionEvent.forbiddenWords ? JSON.parse(sessionEvent.forbiddenWords) : {},
+            }
             const serviceResponse = ServiceResponse.success("Session event retrieved successfully", sessionEvent);
             return handleServiceResponse(serviceResponse, res);
         } catch (error) {
@@ -238,15 +241,15 @@ class SessionEventController {
                 FROM filtered_data
                 GROUP BY forbidden_word
                 ORDER BY count DESC
-            )
-            , key_words_count AS (
+            ), forbidden_words_count AS (
                 SELECT 
-                    unnest("keyWords") AS key_word,
-                    COUNT(*) AS count
-                FROM filtered_data
-                GROUP BY key_word
+                    key AS forbidden_word,
+                    SUM(value::int) AS count
+                FROM filtered_data,
+                LATERAL jsonb_each(forbiddenWords)
+                GROUP BY key
                 ORDER BY count DESC
-            )
+               )
             , top_agent_count AS (
                 SELECT 
                     name,

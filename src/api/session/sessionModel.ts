@@ -70,15 +70,18 @@ export const TranscriptionResponseSchema = z.object({
 export type TranscriptionResponse = z.infer<typeof TranscriptionResponseSchema>;
 
 export const AnalysisResponseSchema = z.object({
-    explanation: z.array(z.string()),
-    category: z.array(z.string()),
-    topic: z.record(z.string(), z.string()),
-    emotion: z.array(z.string()),
-    key_words: z.array(z.string()),
-    routin_check_start: z.array(z.string()),
-    routin_check_end: z.array(z.string()),
-    forbidden_words: z.array(z.string()),
+    analysis: z.object({
+        explanation: z.array(z.string()),
+        category: z.array(z.string()),
+        topic: z.record(z.string(), z.string()),
+        emotion: z.array(z.string()),
+        key_words: z.array(z.string()),
+        routin_check_start: z.array(z.string()),
+        routin_check_end: z.array(z.string()),
+        forbidden_words: z.record(z.string(), z.number()), // Changed to record with number values
+    })
 });
+
 
 export type AnalysisResponse = z.infer<typeof AnalysisResponseSchema>;
 
