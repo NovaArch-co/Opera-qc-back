@@ -247,6 +247,19 @@ class SessionEventController {
                 GROUP BY key_word
                 ORDER BY count DESC
             )
+            , top_agent_count AS (
+                SELECT 
+                    name,
+                    SUM(
+                        (split_part(duration, ':', 1)::INT * 3600) +  -- Hours to seconds
+                        (split_part(duration, ':', 2)::INT * 60) +    -- Minutes to seconds
+                        (split_part(duration, ':', 3)::INT)           -- Seconds
+                    ) AS total_duration_seconds,
+                    COUNT(*) AS count
+                FROM filtered_data
+                GROUP BY name
+                ORDER BY count DESC
+)
             SELECT 
                 (SELECT jsonb_agg(t) FROM topic_distribution t) AS topic_pie_chart,
                 (SELECT jsonb_agg(tt) FROM topic_trend tt) AS topic_line_chart,
@@ -254,7 +267,8 @@ class SessionEventController {
                 (SELECT jsonb_agg(et) FROM emotion_trend et) AS emotion_line_chart,
                 (SELECT jsonb_agg(td) FROM top_destinations td) AS top_destinations,
                 (SELECT jsonb_agg(fw) FROM forbidden_words_count fw) AS forbidden_words_table,
-                (SELECT jsonb_agg(kw) FROM key_words_count kw) AS key_words_table;
+                (SELECT jsonb_agg(kw) FROM key_words_count kw) AS key_words_table,
+                (SELECT jsonb_agg(ta) FROM top_agent_count ta) AS top_agent_count;
         `;
 
             const serviceResponse = ServiceResponse.success("Session events retrieved successfully", result);
