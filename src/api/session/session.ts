@@ -165,8 +165,12 @@ class SessionEventController {
                 return handleServiceResponse(ServiceResponse.failure("Session event not found", {}, StatusCodes.NOT_FOUND), res);
             }
 
+            const incommingfileUrl = `${env.MINIO_ENDPOINT_UTL}${sessionEvent.incommingfileUrl}`
+            const outgoingfileUrl = `${env.MINIO_ENDPOINT_UTL}${sessionEvent.outgoingfileUrl}`
             sessionEvent = {
                 ...sessionEvent,
+                incommingfileUrl,
+                outgoingfileUrl,
                 forbiddenWords: sessionEvent.forbiddenWords ? sessionEvent.forbiddenWords : {},
                 topic: (Object.keys(sessionEvent.topic).length > 0) ? Object.keys(sessionEvent.topic)[0] : ""
             }
@@ -181,11 +185,17 @@ class SessionEventController {
     public getSessions: RequestHandler = async (req: Request, res: Response) => {
         try {
             let sessionEvent = await prisma.sessionEvent.findMany({});
-            sessionEvent = sessionEvent.map(event => ({
-                ...event,
-                forbiddenWords: event.forbiddenWords ? event.forbiddenWords : {},
-                topic: Object.keys(event.topic).length > 0 ? Object.keys(event.topic)[0] : ""
-            }));
+            sessionEvent = sessionEvent.map(event => {
+                const incommingfileUrl = `${env.MINIO_ENDPOINT_UTL}${event.incommingfileUrl}`
+                const outgoingfileUrl = `${env.MINIO_ENDPOINT_UTL}${event.outgoingfileUrl}`
+                return {
+                    ...event,
+                    incommingfileUrl,
+                    outgoingfileUrl,
+                    forbiddenWords: event.forbiddenWords ? event.forbiddenWords : {},
+                    topic: Object.keys(event.topic).length > 0 ? Object.keys(event.topic)[0] : ""
+                }
+            });
             const serviceResponse = ServiceResponse.success("Session events retrieved successfully", sessionEvent);
             return handleServiceResponse(serviceResponse, res);
         } catch (error) {
@@ -355,7 +365,7 @@ const uploadToMinIO = async (filePath: string, objectName: string) => {
         await s3Client.send(command);
 
         // Return MinIO URL
-        return `${env.MINIO_ENDPOINT_UTL}/${BUCKET_NAME}/${objectName}`;
+        return `/${BUCKET_NAME}/${objectName}`;
     } catch (error) {
         console.error("Error uploading to MinIO:", error);
         throw new Error("Failed to upload file to MinIO.");
