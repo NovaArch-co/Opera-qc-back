@@ -14,4 +14,5 @@ export const env = cleanEnv(process.env, {
   COMMON_RATE_LIMIT_WINDOW_MS: num({ devDefault: testOnly(1000) }),
   JWT_SECRET: str({ devDefault: testOnly("ajwtsecret") }),
   JWT_REFRESH_SECRET: str({ devDefault: testOnly("ajwtsecret_refresh") }),
+  MINIO_ENDPOINT_UTL: str({ devDefault: testOnly("http://45.156.185.11:9000") }),
 });

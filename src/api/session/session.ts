@@ -355,7 +355,7 @@ const uploadToMinIO = async (filePath: string, objectName: string) => {
         await s3Client.send(command);
 
         // Return MinIO URL
-        return `http://localhost:9000/${BUCKET_NAME}/${objectName}`;
+        return `${env.MINIO_ENDPOINT_UTL}/${BUCKET_NAME}/${objectName}`;
     } catch (error) {
         console.error("Error uploading to MinIO:", error);
         throw new Error("Failed to upload file to MinIO.");
