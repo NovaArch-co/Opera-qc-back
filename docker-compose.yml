@@ -2,7 +2,7 @@ version: '3.8'
 
 services:
   postgres:
-    image: bitnami/postgresql:17.2.0
+    image: postgres:latest
     container_name: postgres
     environment:
       POSTGRES_USER: myuser
@@ -14,13 +14,26 @@ services:
       - "5433:5432"
     networks:
       - app-network
-
+  redis:
+    image: redis:latest
+    restart: always
+    ports:
+      - "6379:6379"
+    volumes:
+      - /path/to/local/dаta:/root/redis
+      - /path/to/local/redis.conf:/usr/local/etc/redis/redis.conf
+    environment:
+      - REDIS_PASSWORD=password
+      - REDIS_PORT=6379
+      - REDIS_DATABASES=1
   minio:
-    image: quay.io/minio/minio:RELEASE.2024-12-18T13-15-44Z
+    image: minio/minio:latest
     container_name: minio
     environment:
       MINIO_ACCESS_KEY: minioaccesskey
       MINIO_SECRET_KEY: miniosecretkey
+    ports:
+      - "9000:9000"
     volumes:
       - minio_data:/data
     command: server /data --console-address ":9001"
@@ -33,13 +46,17 @@ services:
       dockerfile: Dockerfile
     container_name: backend-qc
     environment:
+      #Redis
+      REDIS_HOST: "45.156.185.11"
+      REDIS_PORT: 6379
+      BULL_QUEUE: "analyseCalls"
       # General Configuration
       NODE_ENV: "test" # Options: 'development', 'production'
       PORT: "8081"
       HOST: "0.0.0.0" # Ensures the container is accessible externally
 
       # Database Configuration
-      DATABASE_URL: "postgresql://myuser:mypassword@postgres:5432/mydb?schema=public"
+      DATABASE_URL: "postgresql://myuser:mypassword@45.156.185.11:5433/mydb?schema=public"
 
       # CORS Configuration
       CORS_ORIGIN: "*"

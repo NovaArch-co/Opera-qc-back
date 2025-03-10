@@ -9,5 +9,5 @@ export default defineConfig({
     globals: true,
     restoreMocks: true,
   },
-  plugins: [tsconfigPaths()],
+  plugins: [tsconfigPaths()]
 });

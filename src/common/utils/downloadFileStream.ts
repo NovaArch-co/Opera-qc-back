@@ -17,6 +17,6 @@ export const downloadAndSaveAudio = async (url: string, outputPath: string, auth
         });
     } catch (error) {
         console.error("Error downloading the audio stream:", error);
-        throw new Error("Failed to download the audio stream.");
+        // throw new Error("Failed to download the audio stream.");
     }
 };

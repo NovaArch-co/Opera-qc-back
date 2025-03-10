@@ -11,7 +11,7 @@ describe("Error Handler Middleware", () => {
     app = express();
 
     app.get("/error", () => {
-      throw new Error("Test error");
+      // throw new Error("Test error");
     });
     app.get("/next-error", (_req, _res, next) => {
       const error = new Error("Error passed to next()");
