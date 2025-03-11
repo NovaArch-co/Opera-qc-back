@@ -3,13 +3,11 @@ import {ServiceResponse} from "@/common/models/serviceResponse";
 import {handleServiceResponse} from "@/common/utils/httpHandlers";
 import {PrismaClient} from "@prisma/client";
 import {StatusCodes} from "http-status-codes";
-import moment from 'moment-jalaali';
 
 
 import {CreateSessionEventSchema} from "@/api/session/sessionModel";
 import {env} from "@/common/utils/envConfig";
 import {PutObjectCommand, S3Client} from "@aws-sdk/client-s3";
-import {addAnalysisCallJob} from "@/cron/cron";
 import path from "node:path";
 import fs from "node:fs";
 import {downloadAndSaveAudio} from "@/common/utils/downloadFileStream";
