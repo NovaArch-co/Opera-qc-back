@@ -6,7 +6,7 @@ import {StatusCodes} from "http-status-codes";
 import moment from 'moment-jalaali';
 
 
-import {CreateSessionEventSchema} from "@/api/session/sessionModel";
+import {AnalysisResponseSchema, CreateSessionEventSchema} from "@/api/session/sessionModel";
 import {env} from "@/common/utils/envConfig";
 import {PutObjectCommand, S3Client} from "@aws-sdk/client-s3";
 import path from "node:path";
@@ -167,14 +167,15 @@ class SessionEventController {
 
             const incommingfileUrl = `${env.MINIO_ENDPOINT_UTL}${sessionEvent.incommingfileUrl}`
             const outgoingfileUrl = `${env.MINIO_ENDPOINT_UTL}${sessionEvent.outgoingfileUrl}`
-            sessionEvent = {
+            let sessionEvents = {
                 ...sessionEvent,
                 incommingfileUrl,
                 outgoingfileUrl,
                 forbiddenWords: sessionEvent.forbiddenWords ? sessionEvent.forbiddenWords : {},
-                topic: (Object.keys(sessionEvent.topic).length > 0) ? Object.keys(sessionEvent.topic)[0] : ""
+                topic: (Object.keys(sessionEvent.topic).length > 0) ? Object.keys(sessionEvent.topic)[0] : "",
+                subTopic: (Object.values(sessionEvent.topic).length > 0) ? Object.values(sessionEvent.topic)[0] : ""
             }
-            const serviceResponse = ServiceResponse.success("Session event retrieved successfully", sessionEvent);
+            const serviceResponse = ServiceResponse.success("Session event retrieved successfully", sessionEvents);
             return handleServiceResponse(serviceResponse, res);
         } catch (error) {
             console.log(error);
@@ -213,7 +214,8 @@ class SessionEventController {
                 incommingfileUrl: event.incommingfileUrl ? `${env.MINIO_ENDPOINT_UTL}${event.incommingfileUrl}` : null,
                 outgoingfileUrl: event.outgoingfileUrl ? `${env.MINIO_ENDPOINT_UTL}${event.outgoingfileUrl}` : null,
                 forbiddenWords: event.forbiddenWords || {},
-                topic: event.topic && Object.keys(event.topic).length > 0 ? Object.keys(event.topic)[0] : ""
+                topic: event.topic && Object.keys(event.topic).length > 0 ? Object.keys(event.topic)[0] : "",
+                subTopic: (Object.values(event.topic).length > 0) ? Object.values(event.topic)[0] : ""
             }));
 
             return handleServiceResponse(
