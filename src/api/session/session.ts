@@ -429,7 +429,7 @@ const sendFilesToTranscriptionAPI = async (filePathIn: string, filePathOut: stri
 
         form.append("agent", fs.createReadStream(filePathOut));
 
-        const response = await axios.post("http://127.0.0.1:8000/transcribe/", form, {
+        const response = await axios.post("http://sleepy_greider:8000/transcribe/", form, {
             headers: {
                 ...form.getHeaders(), // Properly sets multipart headers
             },
@@ -465,7 +465,7 @@ const uploadToMinIO = async (filePath: string, objectName: string) => {
 
 const sendToAnalysisAPI = async (transcriptionData: any) => {
     try {
-        const response = await axios.post("http://127.0.0.1:8000/analyze/", transcriptionData, {
+        const response = await axios.post("http://sleepy_greider:8000/analyze/", transcriptionData, {
             headers: {
                 "Content-Type": "application/json",
                 "Accept": "application/json",
