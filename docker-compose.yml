@@ -35,7 +35,7 @@ services:
     container_name: backend-qc
     environment:
       #Redis
-      REDIS_HOST: "45.156.185.11"
+      REDIS_HOST: "5.202.171.177"
       REDIS_PORT: 6379
       BULL_QUEUE: "analyseCalls"
       # General Configuration

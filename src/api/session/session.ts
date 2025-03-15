@@ -87,8 +87,8 @@ class SessionEventController {
             await sendAudioRequests(filePathIn, "incoming", fileDestIn);
             await sendAudioRequests(filePathOut, "outgoing", fileDestOut);
 
-            const fileUrlIn = await uploadToMinIO(filePathIn, `${fileName}-in.wav`);
-            const fileUrlOut = await uploadToMinIO(filePathIn, `${fileName}-out.wav`);
+            const fileUrlIn = await uploadToMinIO(fileDestIn, `${fileName}-in.wav`);
+            const fileUrlOut = await uploadToMinIO(fileDestOut, `${fileName}-out.wav`);
 
 
             console.log("INCOMING fileDestIn", fileDestIn);
