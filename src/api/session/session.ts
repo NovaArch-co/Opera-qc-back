@@ -6,7 +6,11 @@ import {StatusCodes} from "http-status-codes";
 import moment from 'moment-jalaali';
 
 
-import {AnalysisResponseSchema, CreateSessionEventSchema} from "@/api/session/sessionModel";
+import {
+    AnalysisResponseSchema,
+    CreateSessionEventSchema,
+    TranscriptionResponseSchema
+} from "@/api/session/sessionModel";
 import {env} from "@/common/utils/envConfig";
 import {PutObjectCommand, S3Client} from "@aws-sdk/client-s3";
 import path from "node:path";
@@ -70,10 +74,10 @@ class SessionEventController {
 
             const filePathIn = path.join(__dirname, `./audio_files/${fileName}-in.wav`);
             const filePathOut = path.join(__dirname, `./audio_files/${fileName}-out.wav`);
-            // if (type === "incoming") {
-            // await sendAudioRequests(fullFileName + "-in", "incoming", filePathIn);
-            // await sendAudioRequests(fullFileName + "-out", "outgoing", filePathOut);
-
+            if (type === "incoming") {
+                await sendAudioRequests(filePathIn + "-in", "incoming", filePathIn);
+                await sendAudioRequests(filePathOut + "-out", "outgoing", filePathOut);
+            }
             const fileUrlIn = await uploadToMinIO(filePathIn, `${fileName}-in.wav`);
             const fileUrlOut = await uploadToMinIO(filePathIn, `${fileName}-out.wav`);
 
@@ -129,14 +133,14 @@ class SessionEventController {
                     incommingfileUrl: fileUrlIn,
                     outgoingfileUrl: fileUrlOut,
                     transcription: parsedTranscriptionData,
-                    explanation: parsedAnalysisData.explanation?.[0] || null,
-                    category: parsedAnalysisData.category?.[0] || null,
-                    topic: parsedAnalysisData.topic || null,
-                    emotion: parsedAnalysisData.emotion?.[0] || null,
-                    keyWords: parsedAnalysisData.key_words || [],
-                    routinCheckStart: parsedAnalysisData.routin_check_start?.[0] || null,
-                    routinCheckEnd: parsedAnalysisData.routin_check_end?.[0] || null,
-                    forbiddenWords: parsedAnalysisData.forbidden_words ? parsedAnalysisData.forbidden_words : {},
+                    explanation: parsedAnalysisData?.explanation?.[0] || null,
+                    category: parsedAnalysisData?.category?.[0] || null,
+                    topic: parsedAnalysisData?.topic || {},
+                    emotion: parsedAnalysisData?.emotion?.[0] || null,
+                    keyWords: parsedAnalysisData?.key_words || [],
+                    routinCheckStart: parsedAnalysisData?.routin_check_start?.[0] || null,
+                    routinCheckEnd: parsedAnalysisData?.routin_check_end?.[0] || null,
+                    forbiddenWords: parsedAnalysisData?.forbidden_words ? parsedAnalysisData.forbidden_words : {},
                 },
             });
 
@@ -185,7 +189,7 @@ class SessionEventController {
 
     public getSessions: RequestHandler = async (req: Request, res: Response) => {
         try {
-            let { from, to } = req.query;
+            let {from, to} = req.query;
 
             // 🛠 Default to last 7 days if no params provided
             if (!from && !to) {
@@ -194,10 +198,10 @@ class SessionEventController {
             } else if (!from && to) {
                 from = moment(to, "jYYYY-jMM-jDD").subtract(7, "days").format("jYYYY-jMM-jDD");
             } else if (!to && from) {
-                to = moment().format("jYYYY-jMM-jDD")+"T00:00.000Z";
+                to = moment().format("jYYYY-jMM-jDD") + "T00:00.000Z";
             }
 
-            console.log("Received Jalali Dates:", { from, to });
+            console.log("Received Jalali Dates:", {from, to});
 
             // 🛠 Prisma Raw Query to fetch sessions
             const sessionEvents = await prisma.$queryRaw`
