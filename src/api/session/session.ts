@@ -65,24 +65,37 @@ class SessionEventController {
                 msg
             } = parsedData.data;
 
+            const baseUrl = env.FILE_SERVER_BASE_URL;
+            console.log("INCOMING baseUrl", baseUrl);
+
+            const fileName = filename.replace(".wav", "");
+
+            const filePathIn = `${baseUrl}${fileName}-in`;
+            const filePathOut = `${baseUrl}${fileName}-out`;
+
+            console.log("INCOMING filePathIn", filePathIn);
+            console.log("OUTGOING filePathOut", filePathOut);
+
             console.log("sessionEventController.parsedData.data;", parsedData.data);
 
             const formattedDate = new Date(date.replace(" ", "T") + "Z"); // Converts "YYYY-MM-DD HH:MM:SS" → "YYYY-MM-DDTHH:MM:SSZ"
 
-            const baseUrl = env.FILE_SERVER_BASE_URL;
-            const fileName = filename.replace(".wav", "");
 
-            const filePathIn = path.join(__dirname, `./audio_files/${fileName}-in.wav`);
-            const filePathOut = path.join(__dirname, `./audio_files/${fileName}-out.wav`);
-            if (type === "incoming") {
-                await sendAudioRequests(filePathIn + "-in", "incoming", filePathIn);
-                await sendAudioRequests(filePathOut + "-out", "outgoing", filePathOut);
-            }
+            const fileDestIn = path.join(__dirname, `./audio_files/${fileName}-in.wav`);
+            const fileDestOut = path.join(__dirname, `./audio_files/${fileName}-out.wav`);
+
+            await sendAudioRequests(filePathIn, "incoming", fileDestIn);
+            await sendAudioRequests(filePathOut, "outgoing", fileDestOut);
+
             const fileUrlIn = await uploadToMinIO(filePathIn, `${fileName}-in.wav`);
             const fileUrlOut = await uploadToMinIO(filePathIn, `${fileName}-out.wav`);
 
-            console.log("INCOMING", fileUrlIn);
-            console.log("OUTGOING", fileUrlOut);
+
+            console.log("INCOMING fileDestIn", fileDestIn);
+            console.log("OUTGOING fileDestOut", fileDestOut);
+
+            console.log("INCOMING fileUrlIn", fileUrlIn);
+            console.log("OUTGOING fileUrlOut", fileUrlOut);
 
             const transcribeResponse = await sendFilesToTranscriptionAPI(filePathIn, filePathOut);
 

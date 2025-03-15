@@ -9,7 +9,7 @@ export const env = cleanEnv(process.env, {
     SWAGGER_URL: host({devDefault: testOnly("https://qc.novaarchai.com")}),
     PORT: port({devDefault: testOnly(3000)}),
     CORS_ORIGIN: str({devDefault: testOnly("*")}),
-    FILE_SERVER_BASE_URL: str({devDefault: testOnly("http://185.243.48.218:4567/")}),
+    FILE_SERVER_BASE_URL: str({devDefault: testOnly("http://192.168.1.115/tmp/two-channel/stream-audio-incoming.php?recfile=")}),
     COMMON_RATE_LIMIT_MAX_REQUESTS: num({devDefault: testOnly(1000)}),
     COMMON_RATE_LIMIT_WINDOW_MS: num({devDefault: testOnly(1000)}),
     JWT_SECRET: str({devDefault: testOnly("ajwtsecret")}),
