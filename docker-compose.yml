@@ -2,7 +2,7 @@ version: '3.8'
 
 services:
   postgres:
-    image: bitnami/postgresql:17.2.0
+    image: docker.arvancloud.ir/bitnami/postgresql:17.2.0
     container_name: postgres
     environment:
       POSTGRES_USER: myuser
@@ -15,7 +15,7 @@ services:
     networks:
       - app-network
   minio:
-    image: quay.io/minio/minio:RELEASE.2024-12-18T13-15-44Z
+    image: docker.arvancloud.ir/minio/minio
     container_name: minio
     environment:
       MINIO_ACCESS_KEY: minioaccesskey
