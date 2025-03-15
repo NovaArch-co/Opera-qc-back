@@ -97,7 +97,7 @@ class SessionEventController {
             console.log("INCOMING fileUrlIn", fileUrlIn);
             console.log("OUTGOING fileUrlOut", fileUrlOut);
 
-            const transcribeResponse = await sendFilesToTranscriptionAPI(filePathIn, filePathOut);
+            const transcribeResponse = await sendFilesToTranscriptionAPI(fileDestIn, fileDestOut);
 
             const parsedTranscription = TranscriptionResponseSchema.safeParse(transcribeResponse);
             if (!parsedTranscription.success) {
