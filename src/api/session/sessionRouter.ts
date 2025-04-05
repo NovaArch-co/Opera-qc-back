@@ -1,8 +1,10 @@
 import express, { type Router } from "express";
 import { ExtendedOpenAPIRegistry } from "@/api-docs/openAPIRegistryBuilders";
 import { createApiResponse } from "@/api-docs/openAPIResponseBuilders";
-import {CreateSessionEventResponseSchema, GetSessionEventsSchema, SessionEventSchema} from "@/api/session/sessionModel"; // Assuming the model file
+import { CreateSessionEventResponseSchema, GetSessionEventsSchema, SessionEventSchema } from "@/api/session/sessionModel"; // Assuming the model file
 import { sessionEventController } from "./session";
+import expressBasicAuth from "express-basic-auth";
+import passport from "passport";
 
 export const sessionEventRegistry = new ExtendedOpenAPIRegistry();
 export const sessionEventRouter: Router = express.Router();
@@ -11,21 +13,21 @@ sessionEventRegistry.register("SessionEvent", SessionEventSchema);
 
 sessionEventRegistry.registerSecurePath({
   method: "get",
-  path: "/api/sessions/:id",
+  path: "/api/event/:id",
   tags: ["SessionEvent"],
   responses: createApiResponse(CreateSessionEventResponseSchema, "Success"),
 });
 
 sessionEventRegistry.registerSecurePath({
   method: "get",
-  path: "/api/sessions",
+  path: "/api/event",
   tags: ["SessionEvent"],
   responses: createApiResponse(GetSessionEventsSchema, "Success"),
 });
 
 sessionEventRegistry.registerSecurePath({
   method: "post",
-  path: "/api/sessions",
+  path: "/api/event/sessionReceived",
   request: {
     body: {
       content: {
@@ -41,13 +43,20 @@ sessionEventRegistry.registerSecurePath({
 
 sessionEventRegistry.registerSecurePath({
   method: "get",
-  path: "/api/sessions/dashboard",
+  path: "/api/event/dashboard",
   tags: ["SessionEvent"],
   responses: createApiResponse(SessionEventSchema, "Session Event Created"),
 });
 
-sessionEventRouter.get("/dashboard", sessionEventController.getSessionsByFilter);
-sessionEventRouter.get("/:id", sessionEventController.getSessionEventById);
-sessionEventRouter.get("/", sessionEventController.getSessions);
-sessionEventRouter.post("/", sessionEventController.createSessionEvent);
+/**
+ * @todo
+ */
+sessionEventRouter.get("/dashboard", passport.authenticate("jwt", { session: false }), sessionEventController.getSessionsByFilter);
+sessionEventRouter.get("/:id", passport.authenticate("jwt", { session: false }), sessionEventController.getSessionEventById);
+sessionEventRouter.get("/", passport.authenticate("jwt", { session: false }), sessionEventController.getSessions);
+sessionEventRouter.post("/sessionReceived", expressBasicAuth({
+  users: {
+    'User1': 'hyQ39c8E873MVv5e22E3T355n3bYV5nf'
+  }
+}), sessionEventController.createSessionEvent);
 

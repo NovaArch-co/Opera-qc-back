@@ -12,7 +12,8 @@ import { env } from "@/common/utils/envConfig";
 import passport from "passport";
 import { authRouter } from "./api/auth/authRouter";
 import { passportConfig } from "./auth";
-import {sessionEventRouter} from "@/api/session/sessionRouter";
+import { sessionEventRouter } from "@/api/session/sessionRouter";
+import expressBasicAuth from "express-basic-auth";
 
 const logger = pino({ name: "server start" });
 const app: Express = express();
@@ -39,8 +40,7 @@ app.use(requestLogger);
 app.use("/api/auth", authRouter);
 app.use("/api/users", passport.authenticate("jwt", { session: false }), userRouter);
 // app.use("/api/sessions", passport.authenticate("jwt", { session: false }), sessionEventRouter);
-app.use("/api/sessions",passport.authenticate("jwt", { session: false }), sessionEventRouter);
-
+app.use("/api/event", sessionEventRouter);
 // Swagger UI
 app.use("/api/docs", openAPIRouter);
 app.use(helmet());
