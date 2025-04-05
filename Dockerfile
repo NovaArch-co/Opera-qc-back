@@ -1,4 +1,4 @@
-FROM node:22.12.0-slim
+FROM docker.arvancloud.ir/node:22.12.0-slim
 
 RUN apt-get update
 # Create app directory

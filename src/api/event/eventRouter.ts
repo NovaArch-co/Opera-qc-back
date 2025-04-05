@@ -1,7 +1,7 @@
 import express, { type Router } from "express";
 import { ExtendedOpenAPIRegistry } from "@/api-docs/openAPIRegistryBuilders";
 import { createApiResponse } from "@/api-docs/openAPIResponseBuilders";
-import { CreateSessionEventResponseSchema, GetSessionEventsSchema, SessionEventSchema } from "@/api/session/sessionModel"; // Assuming the model file
+import { CreateSessionEventResponseSchema, GetSessionEventsSchema, SessionEventSchema } from "@/api/event/eventModel"; // Assuming the model file
 import { sessionEventController } from "./event";
 
 export const sessionEventRegistry = new ExtendedOpenAPIRegistry();

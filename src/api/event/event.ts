@@ -1,18 +1,18 @@
-import type {Request, RequestHandler, Response} from "express";
-import {ServiceResponse} from "@/common/models/serviceResponse";
-import {handleServiceResponse} from "@/common/utils/httpHandlers";
-import {PrismaClient} from "@prisma/client";
-import {StatusCodes} from "http-status-codes";
+import type { Request, RequestHandler, Response } from "express";
+import { ServiceResponse } from "@/common/models/serviceResponse";
+import { handleServiceResponse } from "@/common/utils/httpHandlers";
+import { PrismaClient } from "@prisma/client";
+import { StatusCodes } from "http-status-codes";
 import moment from 'moment-jalaali';
 
 
-import {CreateSessionEventSchema} from "@/api/session/sessionModel";
-import {env} from "@/common/utils/envConfig";
-import {PutObjectCommand, S3Client} from "@aws-sdk/client-s3";
-import {addAnalysisCallJob} from "@/cron/cron";
+import { CreateSessionEventSchema } from "@/api/event/eventModel";
+import { env } from "@/common/utils/envConfig";
+import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import { addAnalysisCallJob } from "@/cron/cron";
 import path from "node:path";
 import fs from "node:fs";
-import {downloadAndSaveAudio} from "@/common/utils/downloadFileStream";
+import { downloadAndSaveAudio } from "@/common/utils/downloadFileStream";
 import FormData from "form-data";
 import axios from "axios"; // ✅ Make sure you are using `form-data` package
 
@@ -181,11 +181,11 @@ class SessionEventController {
     };
 
     public getSessionEventById: RequestHandler = async (req: Request, res: Response) => {
-        const {id} = req.params;
+        const { id } = req.params;
 
         try {
             let sessionEvent = await prisma.sessionEvent.findUnique({
-                where: {id: Number(id)},
+                where: { id: Number(id) },
             });
 
             if (!sessionEvent) {
@@ -220,7 +220,7 @@ class SessionEventController {
             } else if (!from && to) {
                 from = moment(to, "jYYYY-jMM-jDD").subtract(7, "days").format("jYYYY-jMM-jDD");
             } else if (!to && from) {
-                to = moment().format("jYYYY-jMM-jDD")+"T00:00.000Z";
+                to = moment().format("jYYYY-jMM-jDD") + "T00:00.000Z";
             }
 
             console.log("Received Jalali Dates:", { from, to });
@@ -259,7 +259,7 @@ class SessionEventController {
 
 
     public getSessionsByFilter: RequestHandler = async (req: Request, res: Response) => {
-        let {from, to} = req.query;
+        let { from, to } = req.query;
 
         if (!from && !to) {
             from = moment().subtract(7, "days").format("jYYYY-jMM-jDD");
@@ -270,7 +270,7 @@ class SessionEventController {
             to = moment().format("jYYYY-jMM-jDD");
         }
 
-        console.log("Jalali Dates:", {from, to});
+        console.log("Jalali Dates:", { from, to });
 
         // Convert Jalali to Gregorian before querying the database
         // const fromGregorian = moment(from, "jYYYY-jMM-jDD").startOf("day").format("YYYY-MM-DD HH:mm:ss");
@@ -369,7 +369,7 @@ class SessionEventController {
 
             const formatLineChart = (data: any[], keyField: string) => {
                 const transformedData: Record<string, Record<string, number>> = {};
-                data.forEach(({call_date, [keyField]: key, count}) => {
+                data.forEach(({ call_date, [keyField]: key, count }) => {
                     if (!transformedData[call_date]) {
                         transformedData[call_date] = {};
                     }
@@ -413,7 +413,7 @@ const sendAudioRequests = async (fileName: string, type: "incoming" | "outgoing"
     try {
         const dir = path.dirname(filePath);
         if (!fs.existsSync(dir)) {
-            fs.mkdirSync(dir, {recursive: true});
+            fs.mkdirSync(dir, { recursive: true });
         }
 
         await downloadAndSaveAudio(`${fileName}`, filePath, auth);
