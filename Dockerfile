@@ -1,7 +1,9 @@
 FROM docker.arvancloud.ir/node:22.12.0-slim
 
-RUN apt-get update
-# Create app directory
+RUN apt-get update && \
+    apt-get install -y libssl3 && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*# Create app directory
 WORKDIR /usr/src/app
 
 # Copy package.json and package-lock.json
