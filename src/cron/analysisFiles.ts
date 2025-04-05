@@ -1,18 +1,18 @@
-import {Job, Worker} from "bullmq";
-import {env} from "@/common/utils/envConfig";
-import {redisConfig} from "@/cron/redis";
+import { Job, Worker } from "bullmq";
+import { env } from "@/common/utils/envConfig";
+import { redisConfig } from "@/cron/redis";
 import {
     AnalysisResponseSchema,
     CreateSessionEventSchema,
     TranscriptionResponseSchema
-} from "@/api/session/sessionModel";
+} from "@/api/event/eventModel";
 import path from "node:path";
 import fs from "node:fs";
-import {downloadAndSaveAudio} from "@/common/utils/downloadFileStream";
+import { downloadAndSaveAudio } from "@/common/utils/downloadFileStream";
 import FormData from "form-data";
 import axios from "axios";
-import {PutObjectCommand, S3Client} from "@aws-sdk/client-s3";
-import {PrismaClient} from "@prisma/client";
+import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import { PrismaClient } from "@prisma/client";
 
 
 const prisma = new PrismaClient();
@@ -175,7 +175,7 @@ const sendAudioRequests = async (fileName: string, type: "incoming" | "outgoing"
     try {
         const dir = path.dirname(filePath);
         if (!fs.existsSync(dir)) {
-            fs.mkdirSync(dir, {recursive: true});
+            fs.mkdirSync(dir, { recursive: true });
         }
 
         await downloadAndSaveAudio(`${fileName}`, filePath, auth);
