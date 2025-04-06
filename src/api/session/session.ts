@@ -4,23 +4,25 @@ import { handleServiceResponse } from "@/common/utils/httpHandlers";
 import { PrismaClient } from "@prisma/client";
 import { StatusCodes } from "http-status-codes";
 import moment from 'moment-jalaali';
-
-
-import {
-    AnalysisResponseSchema,
-    CreateSessionEventSchema,
-    TranscriptionResponseSchema
-} from "@/api/session/sessionModel";
+import { createApiResponse } from "@/common/utils/createApiResponse";
+import { Queue } from "bullmq";
 import { env } from "@/common/utils/envConfig";
+import prisma from "@/common/utils/prisma";
 import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import path from "node:path";
 import fs from "node:fs";
 import { downloadAndSaveAudio } from "@/common/utils/downloadFileStream";
 import FormData from "form-data";
 import axios from "axios"; // ✅ Make sure you are using `form-data` package
-import { sessionQueue } from '@/queue/sessionQueue';
 
-const prisma = new PrismaClient();
+const sessionQueue = new Queue(env.BULL_QUEUE, {
+    connection: {
+        host: env.REDIS_HOST,
+        port: parseInt(env.REDIS_PORT, 10),
+    }
+});
+
+const prismaClient = new PrismaClient();
 
 const s3Client = new S3Client({
     region: "us-east-1",
@@ -35,41 +37,70 @@ const s3Client = new S3Client({
 
 const BUCKET_NAME = "audio-files";
 
-class SessionEventController {
+export class SessionEventController {
 
-    public createSessionEvent: RequestHandler = async (req: Request, res: Response) => {
+    public createSessionEvent = async (req: Request, res: Response) => {
         try {
-            const parsedData = CreateSessionEventSchema.safeParse(req.body);
+            const {
+                type,
+                source_channel,
+                source_number,
+                queue,
+                dest_channel,
+                dest_number,
+                date,
+                duration,
+                filename
+            } = req.body;
 
-            if (!parsedData.success) {
-                return handleServiceResponse(
-                    ServiceResponse.failure("Invalid input data", parsedData.error.errors, StatusCodes.BAD_REQUEST),
-                    res
+            // Validate required fields
+            if (!type || !source_channel || !source_number || !queue || !dest_channel || !dest_number || !date || !duration || !filename) {
+                return res.status(StatusCodes.BAD_REQUEST).json(
+                    createApiResponse(
+                        false,
+                        "Missing required fields",
+                        null,
+                        StatusCodes.BAD_REQUEST
+                    )
                 );
             }
 
+            // Convert date to ISO format
+            const isoDate = moment(date, 'YYYY-MM-DD HH:mm:ss').toDate();
+
             // Add job to queue
-            const job = await sessionQueue.add('process-session', parsedData.data, {
-                attempts: 3,
-                backoff: {
-                    type: 'exponential',
-                    delay: 1000,
-                },
+            const job = await sessionQueue.add('process-session', {
+                type,
+                sourceChannel: source_channel,
+                sourceNumber: source_number,
+                queue,
+                destChannel: dest_channel,
+                destNumber: dest_number,
+                date: isoDate,
+                duration,
+                filename
             });
 
-            // Return success response with 200 status code
-            const serviceResponse = ServiceResponse.success(
-                "Session event processing started",
-                { jobId: job.id },
-                StatusCodes.OK
+            return res.status(StatusCodes.OK).json(
+                createApiResponse(
+                    true,
+                    "Session event processing started",
+                    {
+                        jobId: job.id,
+                        status: "waiting"
+                    },
+                    StatusCodes.OK
+                )
             );
-            return handleServiceResponse(serviceResponse, res);
-
         } catch (error) {
-            console.error(error);
-            return handleServiceResponse(
-                ServiceResponse.failure("Error creating session event", error, StatusCodes.INTERNAL_SERVER_ERROR),
-                res
+            console.error('Error creating session event:', error);
+            return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(
+                createApiResponse(
+                    false,
+                    "Error processing session event",
+                    null,
+                    StatusCodes.INTERNAL_SERVER_ERROR
+                )
             );
         }
     };
@@ -78,7 +109,7 @@ class SessionEventController {
         const { id } = req.params;
 
         try {
-            let sessionEvent = await prisma.sessionEvent.findUnique({
+            let sessionEvent = await prismaClient.sessionEvent.findUnique({
                 where: { id: Number(id) },
             });
 
@@ -121,7 +152,7 @@ class SessionEventController {
             console.log("Received Jalali Dates:", { from, to });
 
             // 🛠 Prisma Raw Query to fetch sessions
-            const sessionEvents = await prisma.$queryRaw`
+            const sessionEvents = await prismaClient.$queryRaw`
             SELECT * FROM "SessionEvent"
             WHERE date BETWEEN ${from}::TIMESTAMP AND ${to}::TIMESTAMP
             ORDER BY date DESC
@@ -178,7 +209,7 @@ class SessionEventController {
 
         try {
 
-            const result = await prisma.$queryRaw`
+            const result = await prismaClient.$queryRaw`
             WITH filtered_data AS (
                 SELECT * FROM "SessionEvent"
                                WHERE date BETWEEN ${from}::TIMESTAMP AND ${to}::TIMESTAMP
@@ -294,23 +325,31 @@ class SessionEventController {
         }
     };
 
-    public getJobStatus: RequestHandler = async (req: Request, res: Response) => {
+    public getJobStatus = async (req: Request, res: Response) => {
         try {
             const { jobId } = req.params;
 
             if (!jobId) {
-                return handleServiceResponse(
-                    ServiceResponse.failure("Job ID is required", null, StatusCodes.BAD_REQUEST),
-                    res
+                return res.status(StatusCodes.BAD_REQUEST).json(
+                    createApiResponse(
+                        false,
+                        "Job ID is required",
+                        null,
+                        StatusCodes.BAD_REQUEST
+                    )
                 );
             }
 
             const job = await sessionQueue.getJob(jobId);
 
             if (!job) {
-                return handleServiceResponse(
-                    ServiceResponse.failure("Job not found", null, StatusCodes.NOT_FOUND),
-                    res
+                return res.status(StatusCodes.NOT_FOUND).json(
+                    createApiResponse(
+                        false,
+                        "Job not found",
+                        null,
+                        StatusCodes.NOT_FOUND
+                    )
                 );
             }
 
@@ -319,26 +358,29 @@ class SessionEventController {
             const result = job.returnvalue;
             const failedReason = job.failedReason;
 
-            const jobStatus = {
-                id: job.id,
-                state,
-                progress,
-                result,
-                failedReason,
-                timestamp: job.timestamp,
-                processedOn: job.processedOn,
-                finishedOn: job.finishedOn
-            };
-
-            return handleServiceResponse(
-                ServiceResponse.success("Job status retrieved successfully", jobStatus),
-                res
+            return res.status(StatusCodes.OK).json(
+                createApiResponse(
+                    true,
+                    "Job status retrieved successfully",
+                    {
+                        jobId: job.id,
+                        state,
+                        progress,
+                        result,
+                        failedReason
+                    },
+                    StatusCodes.OK
+                )
             );
         } catch (error) {
-            console.error(error);
-            return handleServiceResponse(
-                ServiceResponse.failure("Error getting job status", error, StatusCodes.INTERNAL_SERVER_ERROR),
-                res
+            console.error('Error getting job status:', error);
+            return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(
+                createApiResponse(
+                    false,
+                    "Error retrieving job status",
+                    null,
+                    StatusCodes.INTERNAL_SERVER_ERROR
+                )
             );
         }
     };

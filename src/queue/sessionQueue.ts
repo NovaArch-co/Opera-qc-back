@@ -8,8 +8,20 @@ import { TranscriptionResponseSchema, AnalysisResponseSchema } from '@/api/sessi
 import path from 'node:path';
 import { env } from '@/common/utils/envConfig';
 import fs from 'fs';
+import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
+import axios from 'axios';
 
 const prisma = new PrismaClient();
+const s3Client = new S3Client({
+    region: "us-east-1",
+    endpoint: env.MINIO_ENDPOINT_UTL,
+    credentials: {
+        accessKeyId: env.MINIO_ACCESS_KEY || "minioaccesskey",
+        secretAccessKey: env.MINIO_SECRET_KEY || "miniosecretkey",
+    },
+    forcePathStyle: true,
+    tls: false,
+});
 const BUCKET_NAME = "audio-files";
 
 // Create a new queue
@@ -21,125 +33,69 @@ export const sessionQueue = new Queue('session-processing', {
 });
 
 // Create a worker to process the queue
-export const sessionWorker = new Worker('session-processing', async (job) => {
-    const {
-        level,
-        time,
-        pid,
-        hostname,
-        name,
-        type,
-        sourceChannel,
-        sourceNumber,
-        queue,
-        destChannel,
-        destNumber,
-        date,
-        duration,
-        filename,
-        msg
-    } = job.data;
-
-    try {
-        const baseUrl = env.FILE_SERVER_BASE_URL;
-        const fileName = filename.replace(".wav", "");
-
-        const filePathIn = `${baseUrl}${fileName}-in`;
-        const filePathOut = `${baseUrl}${fileName}-out`;
-
-        const formattedDate = new Date(date.replace(" ", "T") + "Z");
-
-        // Ensure audio_files directory exists
-        const audioDir = path.join(__dirname, '../../api/session/audio_files');
-        if (!fs.existsSync(audioDir)) {
-            fs.mkdirSync(audioDir, { recursive: true });
-        }
-
-        const fileDestIn = path.join(audioDir, `${fileName}-in.wav`);
-        const fileDestOut = path.join(audioDir, `${fileName}-out.wav`);
-
-        // Download audio files
-        await sendAudioRequests(filePathIn, "incoming", fileDestIn);
-        await sendAudioRequests(filePathOut, "outgoing", fileDestOut);
-
-        // Upload to MinIO
-        const fileUrlIn = await uploadToMinIO(fileDestIn, `${fileName}-in.wav`);
-        const fileUrlOut = await uploadToMinIO(fileDestOut, `${fileName}-out.wav`);
-
-        if (!fileUrlIn || !fileUrlOut) {
-            console.error("Failed to upload files to MinIO");
-            return null;
-        }
-
-        // Get transcription
-        const transcribeResponse = await sendFilesToTranscriptionAPI(fileDestIn, fileDestOut);
-        if (!transcribeResponse) {
-            console.error("Failed to get transcription");
-            return null;
-        }
-
-        const parsedTranscription = TranscriptionResponseSchema.safeParse(transcribeResponse);
-        if (!parsedTranscription.success) {
-            console.error("Failed to parse transcription response");
-            return null;
-        }
-
-        // Get analysis
-        const analysisResponse = await sendToAnalysisAPI(transcribeResponse);
-        if (!analysisResponse) {
-            console.error("Failed to get analysis");
-            return null;
-        }
-
-        const parsedAnalysis = AnalysisResponseSchema.safeParse(analysisResponse);
-        if (!parsedAnalysis.success) {
-            console.error("Failed to parse analysis response");
-            return null;
-        }
-
-        const parsedTranscriptionData = parsedTranscription.data;
-        const parsedAnalysisData = parsedAnalysis.data?.analysis;
-
-        // Create session event
-        const newSessionEvent = await prisma.sessionEvent.create({
-            data: {
-                level,
-                time: String(time),
-                pid,
-                hostname,
-                name,
+export const sessionWorker = new Worker(
+    env.BULL_QUEUE,
+    async (job) => {
+        try {
+            const {
                 type,
                 sourceChannel,
                 sourceNumber,
                 queue,
                 destChannel,
                 destNumber,
-                date: formattedDate,
+                date,
                 duration,
-                filename,
-                msg,
-                incommingfileUrl: fileUrlIn,
-                outgoingfileUrl: fileUrlOut,
-                transcription: parsedTranscriptionData,
-                explanation: parsedAnalysisData?.explanation?.[0] || null,
-                category: parsedAnalysisData?.category?.[0] || null,
-                topic: parsedAnalysisData?.topic || {},
-                emotion: parsedAnalysisData?.emotion?.[0] || null,
-                keyWords: parsedAnalysisData?.key_words || [],
-                routinCheckStart: parsedAnalysisData?.routin_check_start?.[0] || null,
-                routinCheckEnd: parsedAnalysisData?.routin_check_end?.[0] || null,
-                forbiddenWords: parsedAnalysisData?.forbidden_words ? parsedAnalysisData.forbidden_words : {},
-            },
-        });
+                filename
+            } = job.data;
 
-        return newSessionEvent;
-    } catch (error) {
-        console.error("Error processing session:", error);
-        return null;
+            // Download audio file from file server
+            const fileUrl = `${env.FILE_SERVER_BASE_URL}${filename}`;
+            const response = await axios.get(fileUrl, { responseType: 'arraybuffer' });
+            const audioBuffer = Buffer.from(response.data);
+
+            // Upload to MinIO
+            const key = `${filename}.wav`;
+            await s3Client.send(
+                new PutObjectCommand({
+                    Bucket: BUCKET_NAME,
+                    Key: key,
+                    Body: audioBuffer,
+                    ContentType: 'audio/wav'
+                })
+            );
+
+            // Create session event in database
+            const sessionEvent = await prisma.sessionEvent.create({
+                data: {
+                    type,
+                    sourceChannel,
+                    sourceNumber,
+                    queue,
+                    destChannel,
+                    destNumber,
+                    date,
+                    duration,
+                    filename
+                }
+            });
+
+            return {
+                success: true,
+                sessionEventId: sessionEvent.id
+            };
+        } catch (error) {
+            console.error('Error processing session:', error);
+            throw error;
+        }
+    },
+    {
+        connection: {
+            host: env.REDIS_HOST,
+            port: parseInt(env.REDIS_PORT, 10),
+        },
+        concurrency: 5,
+        removeOnComplete: { count: 1000 },
+        removeOnFail: { count: 5000 }
     }
-}, {
-    connection: {
-        host: env.REDIS_HOST || 'localhost',
-        port: parseInt(env.REDIS_PORT || '6379', 10),
-    }
-}); 
+); 
