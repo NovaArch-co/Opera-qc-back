@@ -1,8 +1,8 @@
-import type {Request, RequestHandler, Response} from "express";
-import {ServiceResponse} from "@/common/models/serviceResponse";
-import {handleServiceResponse} from "@/common/utils/httpHandlers";
-import {PrismaClient} from "@prisma/client";
-import {StatusCodes} from "http-status-codes";
+import type { Request, RequestHandler, Response } from "express";
+import { ServiceResponse } from "@/common/models/serviceResponse";
+import { handleServiceResponse } from "@/common/utils/httpHandlers";
+import { PrismaClient } from "@prisma/client";
+import { StatusCodes } from "http-status-codes";
 import moment from 'moment-jalaali';
 
 
@@ -11,13 +11,14 @@ import {
     CreateSessionEventSchema,
     TranscriptionResponseSchema
 } from "@/api/session/sessionModel";
-import {env} from "@/common/utils/envConfig";
-import {PutObjectCommand, S3Client} from "@aws-sdk/client-s3";
+import { env } from "@/common/utils/envConfig";
+import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import path from "node:path";
 import fs from "node:fs";
-import {downloadAndSaveAudio} from "@/common/utils/downloadFileStream";
+import { downloadAndSaveAudio } from "@/common/utils/downloadFileStream";
 import FormData from "form-data";
 import axios from "axios"; // ✅ Make sure you are using `form-data` package
+import { sessionQueue } from '@/queue/sessionQueue';
 
 const prisma = new PrismaClient();
 
@@ -46,119 +47,21 @@ class SessionEventController {
                 );
             }
 
-
-            const {
-                level,
-                time,
-                pid,
-                hostname,
-                name,
-                type,
-                sourceChannel,
-                sourceNumber,
-                queue,
-                destChannel,
-                destNumber,
-                date,
-                duration,
-                filename,
-                msg
-            } = parsedData.data;
-
-            const baseUrl = env.FILE_SERVER_BASE_URL;
-            console.log("INCOMING baseUrl", baseUrl);
-
-            const fileName = filename.replace(".wav", "");
-
-            const filePathIn = `${baseUrl}${fileName}-in`;
-            const filePathOut = `${baseUrl}${fileName}-out`;
-
-            console.log("INCOMING filePathIn", filePathIn);
-            console.log("OUTGOING filePathOut", filePathOut);
-
-            console.log("sessionEventController.parsedData.data;", parsedData.data);
-
-            const formattedDate = new Date(date.replace(" ", "T") + "Z"); // Converts "YYYY-MM-DD HH:MM:SS" → "YYYY-MM-DDTHH:MM:SSZ"
-
-
-            const fileDestIn = path.join(__dirname, `./audio_files/${fileName}-in.wav`);
-            const fileDestOut = path.join(__dirname, `./audio_files/${fileName}-out.wav`);
-
-            await sendAudioRequests(filePathIn, "incoming", fileDestIn);
-            await sendAudioRequests(filePathOut, "outgoing", fileDestOut);
-
-            const fileUrlIn = await uploadToMinIO(fileDestIn, `${fileName}-in.wav`);
-            const fileUrlOut = await uploadToMinIO(fileDestOut, `${fileName}-out.wav`);
-
-
-            console.log("INCOMING fileDestIn", fileDestIn);
-            console.log("OUTGOING fileDestOut", fileDestOut);
-
-            console.log("INCOMING fileUrlIn", fileUrlIn);
-            console.log("OUTGOING fileUrlOut", fileUrlOut);
-
-            const transcribeResponse = await sendFilesToTranscriptionAPI(fileDestIn, fileDestOut);
-
-            const parsedTranscription = TranscriptionResponseSchema.safeParse(transcribeResponse);
-            if (!parsedTranscription.success) {
-                console.error("Invalid Transcription Data:", parsedTranscription.error.format());
-            } else {
-                console.log("✅ Valid Transcription Data:", parsedTranscription);
-            }
-
-            const analysisResponse = await sendToAnalysisAPI(transcribeResponse);
-
-            const parsedAnalysis = AnalysisResponseSchema.safeParse(analysisResponse);
-            if (!parsedAnalysis.success) {
-                console.error("Invalid Analysis Data:", parsedAnalysis.error.format());
-            } else {
-                console.log("✅ Valid Analysis Data:", parsedAnalysis.data);
-            }
-
-            const parsedTranscriptionData = parsedTranscription.data
-            const parsedAnalysisData = parsedAnalysis.data?.analysis
-
-
-            if (fileUrlIn === "" || fileUrlOut === "") {
-                return handleServiceResponse(
-                    ServiceResponse.failure("Error creating url in or out session event", null, StatusCodes.INTERNAL_SERVER_ERROR),
-                    res
-                );
-            }
-
-            const newSessionEvent = await prisma.sessionEvent.create({
-                data: {
-                    level,
-                    time: String(time),
-                    pid,
-                    hostname,
-                    name,
-                    type,
-                    sourceChannel,
-                    sourceNumber,
-                    queue,
-                    destChannel,
-                    destNumber,
-                    date: formattedDate,
-                    duration,
-                    filename,
-                    msg,
-                    incommingfileUrl: fileUrlIn,
-                    outgoingfileUrl: fileUrlOut,
-                    transcription: parsedTranscriptionData,
-                    explanation: parsedAnalysisData?.explanation?.[0] || null,
-                    category: parsedAnalysisData?.category?.[0] || null,
-                    topic: parsedAnalysisData?.topic || {},
-                    emotion: parsedAnalysisData?.emotion?.[0] || null,
-                    keyWords: parsedAnalysisData?.key_words || [],
-                    routinCheckStart: parsedAnalysisData?.routin_check_start?.[0] || null,
-                    routinCheckEnd: parsedAnalysisData?.routin_check_end?.[0] || null,
-                    forbiddenWords: parsedAnalysisData?.forbidden_words ? parsedAnalysisData.forbidden_words : {},
+            // Add job to queue
+            const job = await sessionQueue.add('process-session', parsedData.data, {
+                attempts: 3,
+                backoff: {
+                    type: 'exponential',
+                    delay: 1000,
                 },
             });
 
-
-            const serviceResponse = ServiceResponse.success("Session event created successfully", newSessionEvent);
+            // Return immediate response
+            const serviceResponse = ServiceResponse.success(
+                "Session event processing started",
+                { jobId: job.id },
+                StatusCodes.ACCEPTED
+            );
             return handleServiceResponse(serviceResponse, res);
 
         } catch (error) {
@@ -171,11 +74,11 @@ class SessionEventController {
     };
 
     public getSessionEventById: RequestHandler = async (req: Request, res: Response) => {
-        const {id} = req.params;
+        const { id } = req.params;
 
         try {
             let sessionEvent = await prisma.sessionEvent.findUnique({
-                where: {id: Number(id)},
+                where: { id: Number(id) },
             });
 
             if (!sessionEvent) {
@@ -202,7 +105,7 @@ class SessionEventController {
 
     public getSessions: RequestHandler = async (req: Request, res: Response) => {
         try {
-            let {from, to} = req.query;
+            let { from, to } = req.query;
 
             // 🛠 Default to last 7 days if no params provided
             if (!from && !to) {
@@ -214,7 +117,7 @@ class SessionEventController {
                 to = moment().format("jYYYY-jMM-jDD") + "T00:00.000Z";
             }
 
-            console.log("Received Jalali Dates:", {from, to});
+            console.log("Received Jalali Dates:", { from, to });
 
             // 🛠 Prisma Raw Query to fetch sessions
             const sessionEvents = await prisma.$queryRaw`
@@ -251,7 +154,7 @@ class SessionEventController {
 
 
     public getSessionsByFilter: RequestHandler = async (req: Request, res: Response) => {
-        let {from, to} = req.query;
+        let { from, to } = req.query;
 
         if (!from && !to) {
             from = moment().subtract(7, "days").format("jYYYY-jMM-jDD");
@@ -262,7 +165,7 @@ class SessionEventController {
             to = moment().format("jYYYY-jMM-jDD");
         }
 
-        console.log("Jalali Dates:", {from, to});
+        console.log("Jalali Dates:", { from, to });
 
         // Convert Jalali to Gregorian before querying the database
         // const fromGregorian = moment(from, "jYYYY-jMM-jDD").startOf("day").format("YYYY-MM-DD HH:mm:ss");
@@ -361,7 +264,7 @@ class SessionEventController {
 
             const formatLineChart = (data: any[], keyField: string) => {
                 const transformedData: Record<string, Record<string, number>> = {};
-                data.forEach(({call_date, [keyField]: key, count}) => {
+                data.forEach(({ call_date, [keyField]: key, count }) => {
                     if (!transformedData[call_date]) {
                         transformedData[call_date] = {};
                     }
@@ -390,10 +293,60 @@ class SessionEventController {
         }
     };
 
+    public getJobStatus: RequestHandler = async (req: Request, res: Response) => {
+        try {
+            const { jobId } = req.params;
+
+            if (!jobId) {
+                return handleServiceResponse(
+                    ServiceResponse.failure("Job ID is required", null, StatusCodes.BAD_REQUEST),
+                    res
+                );
+            }
+
+            const job = await sessionQueue.getJob(jobId);
+
+            if (!job) {
+                return handleServiceResponse(
+                    ServiceResponse.failure("Job not found", null, StatusCodes.NOT_FOUND),
+                    res
+                );
+            }
+
+            const state = await job.getState();
+            const progress = job.progress;
+            const result = job.returnvalue;
+            const failedReason = job.failedReason;
+
+            const jobStatus = {
+                id: job.id,
+                state,
+                progress,
+                result,
+                failedReason,
+                timestamp: job.timestamp,
+                processedOn: job.processedOn,
+                finishedOn: job.finishedOn
+            };
+
+            return handleServiceResponse(
+                ServiceResponse.success("Job status retrieved successfully", jobStatus),
+                res
+            );
+        } catch (error) {
+            console.error(error);
+            return handleServiceResponse(
+                ServiceResponse.failure("Error getting job status", error, StatusCodes.INTERNAL_SERVER_ERROR),
+                res
+            );
+        }
+    };
+
 }
 
 
-const sendAudioRequests = async (fileName: string, type: "incoming" | "outgoing", filePath: string) => {
+// Export the functions that will be used by the queue worker
+export const sendAudioRequests = async (fileName: string, type: "incoming" | "outgoing", filePath: string) => {
     const username = "FaraErtebat";
     const password = "Goz@r!AsreFar@Erteb@t!1403";
     const auth = {
@@ -401,50 +354,20 @@ const sendAudioRequests = async (fileName: string, type: "incoming" | "outgoing"
         password,
     };
 
-
     try {
         const dir = path.dirname(filePath);
         if (!fs.existsSync(dir)) {
-            fs.mkdirSync(dir, {recursive: true});
+            fs.mkdirSync(dir, { recursive: true });
         }
 
         await downloadAndSaveAudio(`${fileName}`, filePath, auth);
 
-
     } catch (error) {
         console.error("Error sending audio requests:", error);
-        // throw new Error("Failed to send and save audio streams.");
     }
 };
 
-const sendFilesToTranscriptionAPI = async (filePathIn: string, filePathOut: string) => {
-    try {
-        const form = new FormData();
-
-        // Get file stats (size) to help FormData handle streams
-        const fileStatIn = fs.statSync(filePathIn);
-        const fileStatOut = fs.statSync(filePathOut);
-
-        form.append("customer", fs.createReadStream(filePathIn));
-
-        form.append("agent", fs.createReadStream(filePathOut));
-
-        const response = await axios.post("http://sleepy_greider:8000/transcribe/", form, {
-            headers: {
-                ...form.getHeaders(), // Properly sets multipart headers
-            },
-        });
-
-        return response.data; // Return the JSON response
-
-    } catch (error) {
-        console.error("Error sending files to transcription API:", error.response?.data || error.message);
-        // throw new Error("Failed to send files for transcription.");
-    }
-};
-
-
-const uploadToMinIO = async (filePath: string, objectName: string) => {
+export const uploadToMinIO = async (filePath: string, objectName: string) => {
     try {
         const fileStream = fs.createReadStream(filePath);
         const command = new PutObjectCommand({
@@ -460,10 +383,35 @@ const uploadToMinIO = async (filePath: string, objectName: string) => {
         return `/${BUCKET_NAME}/${objectName}`;
     } catch (error) {
         console.error("Error uploading to MinIO:", error);
+        return "";
     }
 };
 
-const sendToAnalysisAPI = async (transcriptionData: any) => {
+export const sendFilesToTranscriptionAPI = async (filePathIn: string, filePathOut: string) => {
+    try {
+        const form = new FormData();
+
+        // Get file stats (size) to help FormData handle streams
+        const fileStatIn = fs.statSync(filePathIn);
+        const fileStatOut = fs.statSync(filePathOut);
+
+        form.append("customer", fs.createReadStream(filePathIn));
+        form.append("agent", fs.createReadStream(filePathOut));
+
+        const response = await axios.post("http://sleepy_greider:8000/transcribe/", form, {
+            headers: {
+                ...form.getHeaders(),
+            },
+        });
+
+        return response.data;
+    } catch (error) {
+        console.error("Error sending files to transcription API:", error.response?.data || error.message);
+        return null;
+    }
+};
+
+export const sendToAnalysisAPI = async (transcriptionData: any) => {
     try {
         const response = await axios.post("http://sleepy_greider:8000/analyze/", transcriptionData, {
             headers: {
@@ -472,11 +420,10 @@ const sendToAnalysisAPI = async (transcriptionData: any) => {
             },
         });
 
-        return response.data; // Return the analysis response
-
+        return response.data;
     } catch (error) {
         console.error("Error sending transcription to analysis API:", error.response?.data || error.message);
-        // throw new Error("Failed to send transcription for analysis.");
+        return null;
     }
 };
 

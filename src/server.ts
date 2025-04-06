@@ -14,6 +14,7 @@ import { authRouter } from "./api/auth/authRouter";
 import { passportConfig } from "./auth";
 import { sessionEventRouter } from "@/api/session/sessionRouter";
 import expressBasicAuth from "express-basic-auth";
+import { sessionWorker } from '@/queue/sessionQueue';
 
 const logger = pino({ name: "server start" });
 const app: Express = express();
@@ -48,5 +49,13 @@ app.use(helmet());
 // Error handlers
 app.use(errorHandler());
 
+// Initialize queue worker
+sessionWorker.on('completed', (job) => {
+    console.log(`Job ${job.id} completed successfully`);
+});
+
+sessionWorker.on('failed', (job, err) => {
+    console.error(`Job ${job?.id} failed with error:`, err);
+});
 
 export { app, logger };

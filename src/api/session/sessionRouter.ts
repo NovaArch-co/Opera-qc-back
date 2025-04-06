@@ -48,6 +48,13 @@ sessionEventRegistry.registerSecurePath({
   responses: createApiResponse(SessionEventSchema, "Session Event Created"),
 });
 
+sessionEventRegistry.registerSecurePath({
+  method: "get",
+  path: "/api/event/job/:jobId",
+  tags: ["SessionEvent"],
+  responses: createApiResponse(SessionEventSchema, "Job Status"),
+});
+
 /**
  * @todo
  */
@@ -59,4 +66,5 @@ sessionEventRouter.post("/sessionReceived", expressBasicAuth({
     'User1': 'hyQ39c8E873MVv5e22E3T355n3bYV5nf'
   }
 }), sessionEventController.createSessionEvent);
+sessionEventRouter.get("/job/:jobId", passport.authenticate("jwt", { session: false }), sessionEventController.getJobStatus);
 
