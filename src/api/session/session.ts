@@ -57,11 +57,11 @@ class SessionEventController {
                 },
             });
 
-            // Return immediate response
+            // Return success response with 200 status code
             const serviceResponse = ServiceResponse.success(
                 "Session event processing started",
                 { jobId: job.id },
-                StatusCodes.ACCEPTED
+                StatusCodes.OK
             );
             return handleServiceResponse(serviceResponse, res);
 
