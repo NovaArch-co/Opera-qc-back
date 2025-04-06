@@ -49,6 +49,7 @@ services:
       - "8080:8080"
     environment:
       - NODE_ENV=development
+      - PORT=8080
       - POSTGRES_HOST=postgres
       - POSTGRES_PORT=5432
       - POSTGRES_DB=${POSTGRES_DB}
@@ -62,6 +63,9 @@ services:
       - MINIO_PORT=9000
       - MINIO_ACCESS_KEY=minioaccesskey
       - MINIO_SECRET_KEY=miniosecretkey
+      - JWT_SECRET=${JWT_SECRET:-your-secret-key}
+      - JWT_EXPIRES_IN=${JWT_EXPIRES_IN:-1d}
+      - CORS_ORIGIN=${CORS_ORIGIN:-http://localhost:3000}
     depends_on:
       - postgres
       - minio
