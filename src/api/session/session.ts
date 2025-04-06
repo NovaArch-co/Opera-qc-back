@@ -55,14 +55,12 @@ export class SessionEventController {
 
             // Validate required fields
             if (!type || !source_channel || !source_number || !queue || !dest_channel || !dest_number || !date || !duration || !filename) {
-                return res.status(StatusCodes.BAD_REQUEST).json(
-                    createApiResponse(
-                        false,
-                        "Missing required fields",
-                        null,
-                        StatusCodes.BAD_REQUEST
-                    )
-                );
+                return res.status(StatusCodes.BAD_REQUEST).json({
+                    success: false,
+                    message: "Missing required fields",
+                    data: null,
+                    statusCode: StatusCodes.BAD_REQUEST
+                });
             }
 
             // Convert date to ISO format
@@ -81,27 +79,23 @@ export class SessionEventController {
                 filename
             });
 
-            return res.status(StatusCodes.OK).json(
-                createApiResponse(
-                    true,
-                    "Session event processing started",
-                    {
-                        jobId: job.id,
-                        status: "waiting"
-                    },
-                    StatusCodes.OK
-                )
-            );
+            return res.status(StatusCodes.OK).json({
+                success: true,
+                message: "Session event processing started",
+                data: {
+                    jobId: job.id,
+                    status: "waiting"
+                },
+                statusCode: StatusCodes.OK
+            });
         } catch (error) {
             console.error('Error creating session event:', error);
-            return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(
-                createApiResponse(
-                    false,
-                    "Error processing session event",
-                    null,
-                    StatusCodes.INTERNAL_SERVER_ERROR
-                )
-            );
+            return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+                success: false,
+                message: "Error processing session event",
+                data: null,
+                statusCode: StatusCodes.INTERNAL_SERVER_ERROR
+            });
         }
     };
 
@@ -330,27 +324,23 @@ export class SessionEventController {
             const { jobId } = req.params;
 
             if (!jobId) {
-                return res.status(StatusCodes.BAD_REQUEST).json(
-                    createApiResponse(
-                        false,
-                        "Job ID is required",
-                        null,
-                        StatusCodes.BAD_REQUEST
-                    )
-                );
+                return res.status(StatusCodes.BAD_REQUEST).json({
+                    success: false,
+                    message: "Job ID is required",
+                    data: null,
+                    statusCode: StatusCodes.BAD_REQUEST
+                });
             }
 
             const job = await sessionQueue.getJob(jobId);
 
             if (!job) {
-                return res.status(StatusCodes.NOT_FOUND).json(
-                    createApiResponse(
-                        false,
-                        "Job not found",
-                        null,
-                        StatusCodes.NOT_FOUND
-                    )
-                );
+                return res.status(StatusCodes.NOT_FOUND).json({
+                    success: false,
+                    message: "Job not found",
+                    data: null,
+                    statusCode: StatusCodes.NOT_FOUND
+                });
             }
 
             const state = await job.getState();
@@ -358,30 +348,26 @@ export class SessionEventController {
             const result = job.returnvalue;
             const failedReason = job.failedReason;
 
-            return res.status(StatusCodes.OK).json(
-                createApiResponse(
-                    true,
-                    "Job status retrieved successfully",
-                    {
-                        jobId: job.id,
-                        state,
-                        progress,
-                        result,
-                        failedReason
-                    },
-                    StatusCodes.OK
-                )
-            );
+            return res.status(StatusCodes.OK).json({
+                success: true,
+                message: "Job status retrieved successfully",
+                data: {
+                    jobId: job.id,
+                    state,
+                    progress,
+                    result,
+                    failedReason
+                },
+                statusCode: StatusCodes.OK
+            });
         } catch (error) {
             console.error('Error getting job status:', error);
-            return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(
-                createApiResponse(
-                    false,
-                    "Error retrieving job status",
-                    null,
-                    StatusCodes.INTERNAL_SERVER_ERROR
-                )
-            );
+            return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+                success: false,
+                message: "Error retrieving job status",
+                data: null,
+                statusCode: StatusCodes.INTERNAL_SERVER_ERROR
+            });
         }
     };
 
