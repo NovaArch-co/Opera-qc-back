@@ -15,6 +15,8 @@ export const env = cleanEnv(process.env, {
     JWT_SECRET: str({ devDefault: testOnly("ajwtsecret") }),
     JWT_REFRESH_SECRET: str({ devDefault: testOnly("ajwtsecret_refresh") }),
     MINIO_ENDPOINT_UTL: str({ devDefault: testOnly("http://45.156.185.11:9000") }),
+    MINIO_ACCESS_KEY: str({ devDefault: testOnly("minioaccesskey") }),
+    MINIO_SECRET_KEY: str({ devDefault: testOnly("miniosecretkey") }),
     REDIS_HOST: str({ devDefault: testOnly("45.156.185.11") }),
     REDIS_PORT: port({ devDefault: testOnly(6379) }),
     BULL_QUEUE: str({ devDefault: testOnly("analyseCalls") }),

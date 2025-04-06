@@ -24,12 +24,13 @@ const prisma = new PrismaClient();
 
 const s3Client = new S3Client({
     region: "us-east-1",
-    endpoint: "http://minio:9000",
+    endpoint: env.MINIO_ENDPOINT_UTL,
     credentials: {
-        accessKeyId: "minioaccesskey",
-        secretAccessKey: "miniosecretkey",
+        accessKeyId: env.MINIO_ACCESS_KEY || "minioaccesskey",
+        secretAccessKey: env.MINIO_SECRET_KEY || "miniosecretkey",
     },
     forcePathStyle: true,
+    tls: false,
 });
 
 const BUCKET_NAME = "audio-files";
@@ -369,12 +370,20 @@ export const sendAudioRequests = async (fileName: string, type: "incoming" | "ou
 
 export const uploadToMinIO = async (filePath: string, objectName: string) => {
     try {
+        if (!fs.existsSync(filePath)) {
+            console.error(`File not found: ${filePath}`);
+            return null;
+        }
+
         const fileStream = fs.createReadStream(filePath);
+        const stats = fs.statSync(filePath);
+
         const command = new PutObjectCommand({
             Bucket: BUCKET_NAME,
             Key: objectName,
             Body: fileStream,
             ContentType: "audio/wav",
+            ContentLength: stats.size
         });
 
         await s3Client.send(command);
@@ -383,12 +392,17 @@ export const uploadToMinIO = async (filePath: string, objectName: string) => {
         return `/${BUCKET_NAME}/${objectName}`;
     } catch (error) {
         console.error("Error uploading to MinIO:", error);
-        return "";
+        return null;
     }
 };
 
 export const sendFilesToTranscriptionAPI = async (filePathIn: string, filePathOut: string) => {
     try {
+        if (!fs.existsSync(filePathIn) || !fs.existsSync(filePathOut)) {
+            console.error(`One or both files not found: ${filePathIn}, ${filePathOut}`);
+            return null;
+        }
+
         const form = new FormData();
 
         // Get file stats (size) to help FormData handle streams
@@ -405,7 +419,7 @@ export const sendFilesToTranscriptionAPI = async (filePathIn: string, filePathOu
         });
 
         return response.data;
-    } catch (error) {
+    } catch (error: any) {
         console.error("Error sending files to transcription API:", error.response?.data || error.message);
         return null;
     }
@@ -413,6 +427,11 @@ export const sendFilesToTranscriptionAPI = async (filePathIn: string, filePathOu
 
 export const sendToAnalysisAPI = async (transcriptionData: any) => {
     try {
+        if (!transcriptionData) {
+            console.error("No transcription data provided");
+            return null;
+        }
+
         const response = await axios.post("http://sleepy_greider:8000/analyze/", transcriptionData, {
             headers: {
                 "Content-Type": "application/json",
@@ -421,7 +440,7 @@ export const sendToAnalysisAPI = async (transcriptionData: any) => {
         });
 
         return response.data;
-    } catch (error) {
+    } catch (error: any) {
         console.error("Error sending transcription to analysis API:", error.response?.data || error.message);
         return null;
     }
