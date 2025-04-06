@@ -70,6 +70,7 @@ services:
       - postgres
       - minio
       - redis
+    command: sh -c "npx prisma migrate deploy && npm start"
     networks:
       - app-network
 
