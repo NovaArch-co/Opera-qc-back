@@ -8,7 +8,7 @@ import { TranscriptionResponseSchema, AnalysisResponseSchema } from '@/api/sessi
 import path from 'node:path';
 import { env } from '@/common/utils/envConfig';
 import fs from 'fs';
-import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
+import { S3Client, PutObjectCommand, ListBucketsCommand, CreateBucketCommand, HeadBucketCommand } from '@aws-sdk/client-s3';
 import axios from 'axios';
 
 const prisma = new PrismaClient();
@@ -23,6 +23,27 @@ const s3Client = new S3Client({
     tls: false,
 });
 const BUCKET_NAME = "audio-files";
+
+// Function to ensure bucket exists
+async function ensureBucketExists(bucketName: string) {
+    try {
+        // Check if bucket exists
+        try {
+            await s3Client.send(new HeadBucketCommand({ Bucket: bucketName }));
+            console.log(`Bucket ${bucketName} already exists`);
+            return true;
+        } catch (error) {
+            // If we get here, bucket doesn't exist
+            console.log(`Bucket ${bucketName} does not exist, creating now...`);
+            await s3Client.send(new CreateBucketCommand({ Bucket: bucketName }));
+            console.log(`Created bucket: ${bucketName}`);
+            return true;
+        }
+    } catch (error) {
+        console.error(`Error ensuring bucket exists: ${error}`);
+        return false;
+    }
+}
 
 // Create a new queue
 export const sessionQueue = new Queue('session-processing', {
@@ -62,6 +83,9 @@ export const sessionWorker = new Worker(
                 auth: auth
             });
             const audioBuffer = Buffer.from(response.data);
+
+            // Ensure bucket exists before uploading
+            await ensureBucketExists(BUCKET_NAME);
 
             // Upload to MinIO
             const key = `${filename}.wav`;
