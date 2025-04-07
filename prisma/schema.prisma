@@ -16,16 +16,16 @@ model User {
 }
 
 model SessionEvent {
-  id              Int      @id @default(autoincrement())
-  type            String
-  sourceChannel   String
-  sourceNumber    String
-  queue           String
-  destChannel     String
-  destNumber      String
-  date            DateTime
-  duration        String
-  filename        String
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id            Int      @id @default(autoincrement())
+  type          String
+  sourceChannel String   @map("source_channel")
+  sourceNumber  String   @map("source_number")
+  queue         String
+  destChannel   String   @map("dest_channel")
+  destNumber    String   @map("dest_number")
+  date          DateTime
+  duration      String
+  filename      String
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 }
