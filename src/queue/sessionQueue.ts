@@ -59,13 +59,14 @@ export const sessionWorker = new Worker(
     env.BULL_QUEUE,
     async (job) => {
         try {
+            // Handle both camelCase and snake_case field names in incoming data
             const {
                 type,
-                sourceChannel,
-                sourceNumber,
+                sourceChannel, source_channel,
+                sourceNumber, source_number,
                 queue,
-                destChannel,
-                destNumber,
+                destChannel, dest_channel,
+                destNumber, dest_number,
                 date,
                 duration,
                 filename
@@ -108,11 +109,11 @@ export const sessionWorker = new Worker(
                     hostname: os.hostname(),
                     name: "session_event",
                     type,
-                    source_channel: sourceChannel,
-                    source_number: sourceNumber,
+                    sourceChannel: sourceChannel || source_channel,
+                    sourceNumber: sourceNumber || source_number,
                     queue,
-                    dest_channel: destChannel,
-                    dest_number: destNumber,
+                    destChannel: destChannel || dest_channel,
+                    destNumber: destNumber || dest_number,
                     date: new Date(date),
                     duration,
                     filename,
