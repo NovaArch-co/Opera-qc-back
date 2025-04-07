@@ -180,29 +180,58 @@ export class SessionEventController {
 
 
     public getSessionsByFilter: RequestHandler = async (req: Request, res: Response) => {
-        let { from, to } = req.query;
-
-        if (!from && !to) {
-            from = moment().subtract(7, "days").format("jYYYY-jMM-jDD");
-            to = moment().format("jYYYY-jMM-jDD");
-        } else if (!from && to) {
-            from = moment().subtract(7, "days").format("jYYYY-jMM-jDD");
-        } else if (!to && from) {
-            to = moment().format("jYYYY-jMM-jDD");
-        }
-
-        console.log("Jalali Dates:", { from, to });
-
-        // Convert Jalali to Gregorian before querying the database
-        // const fromGregorian = moment(from, "jYYYY-jMM-jDD").startOf("day").format("YYYY-MM-DD HH:mm:ss");
-        // const toGregorian = moment(to, "jYYYY-jMM-jDD").endOf("day").format("YYYY-MM-DD HH:mm:ss");
-
-
-        // from = from + "T00:00.000Z";
-        // to = to + "T00:00.000Z";
-
         try {
+            let { from, to } = req.query;
+            console.log("Raw query params:", { from, to });
 
+            if (!from && !to) {
+                from = moment().subtract(7, "days").format("jYYYY-jMM-jDD");
+                to = moment().format("jYYYY-jMM-jDD");
+            } else if (!from && to) {
+                from = moment().subtract(7, "days").format("jYYYY-jMM-jDD");
+            } else if (!to && from) {
+                to = moment().format("jYYYY-jMM-jDD");
+            }
+
+            console.log("Jalali Dates:", { from, to });
+
+            // Convert Jalali to Gregorian for logging
+            try {
+                const fromGregorian = moment(from, "jYYYY-jMM-jDD").format("YYYY-MM-DD");
+                const toGregorian = moment(to, "jYYYY-jMM-jDD").format("YYYY-MM-DD");
+                console.log("Gregorian Dates:", { fromGregorian, toGregorian });
+            } catch (dateError) {
+                console.error("Error converting Jalali to Gregorian:", dateError);
+            }
+
+            // First, let's check if we have any data in the date range
+            try {
+                console.log("Executing count query...");
+                const countResult = await prismaClient.$queryRaw`
+                    SELECT COUNT(*) as count 
+                    FROM "SessionEvent" 
+                    WHERE date BETWEEN ${from}::TIMESTAMP AND ${to}::TIMESTAMP
+                `;
+                console.log("Total records in date range:", countResult[0].count);
+            } catch (countError) {
+                console.error("Error executing count query:", countError);
+            }
+
+            // Check if we have any records with emotions
+            try {
+                console.log("Executing emotion count query...");
+                const emotionCount = await prismaClient.$queryRaw`
+                    SELECT COUNT(*) as count 
+                    FROM "SessionEvent" 
+                    WHERE emotion IS NOT NULL 
+                    AND date BETWEEN ${from}::TIMESTAMP AND ${to}::TIMESTAMP
+                `;
+                console.log("Records with emotions:", emotionCount[0].count);
+            } catch (emotionError) {
+                console.error("Error executing emotion count query:", emotionError);
+            }
+
+            console.log("Executing main dashboard query...");
             const result = await prismaClient.$queryRaw`
             WITH filtered_data AS (
                 SELECT * FROM "SessionEvent"
@@ -213,6 +242,7 @@ export class SessionEventController {
                     emotion,
                     COUNT(*) AS count
                 FROM filtered_data
+                WHERE emotion IS NOT NULL
                 GROUP BY emotion
             )
             , emotion_trend AS (
@@ -221,6 +251,7 @@ export class SessionEventController {
                     TO_CHAR(date, 'YYYY-MM-DD') AS call_date,
                     COUNT(*) AS count
                 FROM filtered_data
+                WHERE emotion IS NOT NULL
                 GROUP BY emotion, call_date
             )
             , top_destinations AS (
@@ -238,7 +269,7 @@ export class SessionEventController {
                     unnest("keyWords") AS key_words,
                     COUNT(*) AS count
                 FROM filtered_data
-                WHERE "keyWords" IS NOT NULL
+                WHERE "keyWords" IS NOT NULL AND array_length("keyWords", 1) > 0
                 GROUP BY key_words
                 ORDER BY count DESC
             ), forbidden_words_count AS (
@@ -247,6 +278,7 @@ export class SessionEventController {
                     SUM(value::int) AS count
                 FROM filtered_data,
                 LATERAL jsonb_each_text("forbiddenWords")
+                WHERE "forbiddenWords" IS NOT NULL
                 GROUP BY key
                 ORDER BY count DESC
                )
@@ -260,6 +292,7 @@ export class SessionEventController {
                     ) AS total_duration_seconds,
                     COUNT(*) AS count
                 FROM filtered_data
+                WHERE name IS NOT NULL
                 GROUP BY name
                 ORDER BY count DESC
             )
@@ -271,6 +304,8 @@ export class SessionEventController {
                 (SELECT jsonb_agg(kw) FROM key_words_count kw) AS key_words_table,
                 (SELECT jsonb_agg(ta) FROM top_agent_count ta) AS top_agent_count;
         `;
+
+            console.log("Query result:", JSON.stringify(result[0], null, 2));
 
             const formatLineChart = (data: any[], keyField: string) => {
                 const transformedData: Record<string, Record<string, number>> = {};
@@ -295,7 +330,7 @@ export class SessionEventController {
             const serviceResponse = ServiceResponse.success("Session events retrieved successfully", responseData);
             return handleServiceResponse(serviceResponse, res);
         } catch (error) {
-            console.error(error);
+            console.error("Error in getSessionsByFilter:", error);
             return handleServiceResponse(ServiceResponse.failure("Error fetching session events", error, StatusCodes.INTERNAL_SERVER_ERROR), res);
         }
     };
