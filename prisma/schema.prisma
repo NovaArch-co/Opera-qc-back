@@ -17,6 +17,7 @@ model User {
 
 model SessionEvent {
   id            Int      @id @default(autoincrement())
+  level         String
   type          String
   sourceChannel String   @map("source_channel")
   sourceNumber  String   @map("source_number")

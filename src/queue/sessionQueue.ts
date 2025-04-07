@@ -150,12 +150,14 @@ export const sessionWorker = new Worker(
                 // Step 3: Send files to transcription API
                 console.log("Sending files to transcription API...");
                 const transcriptionResult = await sendFilesToTranscriptionAPI(customerFilePath, agentFilePath);
+                console.log("Transcription Result:", transcriptionResult);
 
                 if (transcriptionResult) {
                     console.log("Transcription complete, sending for analysis...");
 
                     // Step 4: Send transcription to analysis API
                     const analysisResult = await sendToAnalysisAPI(transcriptionResult);
+                    console.log("Analysis Result:", analysisResult);
 
                     if (analysisResult) {
                         console.log("Analysis complete");
@@ -181,22 +183,22 @@ export const sessionWorker = new Worker(
 
                         if (parsedTranscriptionData && parsedAnalysisData) {
                             // Update the session event with the analysis results
-                            const updatedSessionEvent = await prisma.sessionEvent.update({
-                                where: { id: sessionEvent.id },
-                                data: {
-                                    incommingfileUrl: `/${BUCKET_NAME}/${filename}-in.wav`,
-                                    outgoingfileUrl: `/${BUCKET_NAME}/${filename}-out.wav`,
-                                    transcription: parsedTranscriptionData,
-                                    explanation: parsedAnalysisData.explanation?.[0] || null,
-                                    category: parsedAnalysisData.category?.[0] || null,
-                                    topic: parsedAnalysisData.topic || null,
-                                    emotion: parsedAnalysisData.emotion?.[0] || null,
-                                    keyWords: parsedAnalysisData.key_words || [],
-                                    routinCheckStart: parsedAnalysisData.routin_check_start?.[0] || null,
-                                    routinCheckEnd: parsedAnalysisData.routin_check_end?.[0] || null,
-                                    forbiddenWords: parsedAnalysisData.forbidden_words ? parsedAnalysisData.forbidden_words : {},
-                                }
-                            });
+                            // const updatedSessionEvent = await prisma.sessionEvent.update({
+                            //     where: { id: sessionEvent.id },
+                            //     data: {
+                            //         incommingfileUrl: `/${BUCKET_NAME}/${filename}-in.wav`,
+                            //         outgoingfileUrl: `/${BUCKET_NAME}/${filename}-out.wav`,
+                            //         transcription: parsedTranscriptionData,
+                            //         explanation: parsedAnalysisData.explanation?.[0] || null,
+                            //         category: parsedAnalysisData.category?.[0] || null,
+                            //         topic: parsedAnalysisData.topic || null,
+                            //         emotion: parsedAnalysisData.emotion?.[0] || null,
+                            //         keyWords: parsedAnalysisData.key_words || [],
+                            //         routinCheckStart: parsedAnalysisData.routin_check_start?.[0] || null,
+                            //         routinCheckEnd: parsedAnalysisData.routin_check_end?.[0] || null,
+                            //         forbiddenWords: parsedAnalysisData.forbidden_words ? parsedAnalysisData.forbidden_words : {},
+                            //     }
+                            // });
 
                             console.log("Updated session event with analysis results:", updatedSessionEvent.id);
                         }
