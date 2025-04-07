@@ -204,6 +204,31 @@ export class SessionEventController {
                 console.error("Error converting Jalali to Gregorian:", dateError);
             }
 
+            // Check if there are any records in the database at all
+            try {
+                console.log("Checking if there are any records in the database...");
+                const totalRecords = await prismaClient.$queryRaw`
+                    SELECT COUNT(*) as count FROM "SessionEvent"
+                `;
+                console.log("Total records in database:", totalRecords[0].count);
+
+                if (totalRecords[0].count > 0) {
+                    // Get the date range of all records
+                    const dateRange = await prismaClient.$queryRaw`
+                        SELECT 
+                            MIN(date) as min_date, 
+                            MAX(date) as max_date 
+                        FROM "SessionEvent"
+                    `;
+                    console.log("Date range of all records:", {
+                        min_date: dateRange[0].min_date,
+                        max_date: dateRange[0].max_date
+                    });
+                }
+            } catch (dbError) {
+                console.error("Error checking database records:", dbError);
+            }
+
             // First, let's check if we have any data in the date range
             try {
                 console.log("Executing count query...");
