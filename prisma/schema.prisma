@@ -16,17 +16,41 @@ model User {
 }
 
 model SessionEvent {
-  id            Int      @id @default(autoincrement())
-  level         String
-  type          String
-  sourceChannel String   @map("source_channel")
-  sourceNumber  String   @map("source_number")
-  queue         String
-  destChannel   String   @map("dest_channel")
-  destNumber    String   @map("dest_number")
-  date          DateTime
-  duration      String
-  filename      String
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id                Int      @id @default(autoincrement())
+  level             Int      // Changed from String to Int
+  type              String
+  sourceChannel     String   @map("source_channel")
+  sourceNumber      String   @map("source_number")
+  queue             String
+  destChannel       String   @map("dest_channel")
+  destNumber        String   @map("dest_number")
+  date              DateTime
+  duration          String
+  filename          String
+
+  // File URLs for audio files stored in MinIO
+  incommingfileUrl  String?
+  outgoingfileUrl   String?
+
+  // Transcription and analysis details
+  transcription     Json?    // full transcription response
+  explanation       String?  // first element from explanation array
+  category          String?  // first element from category array
+  topic             Json?    // topic object (full object stored)
+  emotion           String?  // first element from emotion array
+  keyWords          Json?    // array of keywords
+  routinCheckStart  String?
+  routinCheckEnd    String?
+  forbiddenWords    Json?    // can be an object or array
+
+  // Optional metadata/logging fields
+  time              DateTime?
+  pid               Int?
+  hostname          String?
+  name              String?
+  msg               String?
+
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 }
+
