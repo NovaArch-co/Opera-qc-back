@@ -131,24 +131,11 @@ export class SessionEventController {
 
     public getSessions: RequestHandler = async (req: Request, res: Response) => {
         try {
-            let { from, to } = req.query;
+            console.log("Fetching all sessions without date filtering...");
 
-            // 🛠 Default to last 7 days if no params provided
-            if (!from && !to) {
-                from = moment().subtract(7, "days").format("jYYYY-jMM-jDD");
-                to = moment().format("jYYYY-jMM-jDD");
-            } else if (!from && to) {
-                from = moment(to, "jYYYY-jMM-jDD").subtract(7, "days").format("jYYYY-jMM-jDD");
-            } else if (!to && from) {
-                to = moment().format("jYYYY-jMM-jDD") + "T00:00.000Z";
-            }
-
-            console.log("Received Jalali Dates:", { from, to });
-
-            // 🛠 Prisma Raw Query to fetch sessions
+            // 🛠 Prisma Raw Query to fetch all sessions
             const sessionEvents = await prismaClient.$queryRaw`
             SELECT * FROM "SessionEvent"
-            WHERE date BETWEEN ${from}::TIMESTAMP AND ${to}::TIMESTAMP
             ORDER BY date DESC
         `;
 
