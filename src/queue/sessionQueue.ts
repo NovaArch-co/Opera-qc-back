@@ -59,18 +59,20 @@ export const sessionWorker = new Worker(
     env.BULL_QUEUE,
     async (job) => {
         try {
-            // Handle both camelCase and snake_case field names in incoming data
+            // Get the data in the format it comes from the external service
             const {
                 type,
-                sourceChannel, source_channel,
-                sourceNumber, source_number,
+                source_channel,
+                source_number,
                 queue,
-                destChannel, dest_channel,
-                destNumber, dest_number,
+                dest_channel,
+                dest_number,
                 date,
                 duration,
                 filename
             } = job.data;
+
+            console.log("Received job data:", job.data);
 
             // Basic auth credentials for file server
             const auth = {
@@ -100,20 +102,22 @@ export const sessionWorker = new Worker(
                 })
             );
 
-            // Create session event in database with only the fields defined in the Prisma schema
+            // Map the snake_case fields to camelCase fields for Prisma
             const sessionEvent = await prisma.sessionEvent.create({
                 data: {
                     type,
-                    sourceChannel: sourceChannel || source_channel || "",
-                    sourceNumber: sourceNumber || source_number || "",
-                    queue: queue || "",
-                    destChannel: destChannel || dest_channel || "",
-                    destNumber: destNumber || dest_number || "",
+                    sourceChannel: source_channel,
+                    sourceNumber: source_number,
+                    queue,
+                    destChannel: dest_channel,
+                    destNumber: dest_number,
                     date: new Date(date),
                     duration,
                     filename
                 }
             });
+
+            console.log("Created session event:", sessionEvent);
 
             return {
                 success: true,
