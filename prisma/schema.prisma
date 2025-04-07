@@ -38,7 +38,7 @@ model SessionEvent {
   category          String?  // first element from category array
   topic             Json?    // topic object (full object stored)
   emotion           String?  // first element from emotion array
-  keyWords          Json?    // array of keywords
+  keyWords          String[] // Changed from Json? to String[]
   routinCheckStart  String?
   routinCheckEnd    String?
   forbiddenWords    Json?    // can be an object or array

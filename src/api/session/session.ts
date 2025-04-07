@@ -238,6 +238,7 @@ export class SessionEventController {
                     unnest("keyWords") AS key_words,
                     COUNT(*) AS count
                 FROM filtered_data
+                WHERE "keyWords" IS NOT NULL
                 GROUP BY key_words
                 ORDER BY count DESC
             ), forbidden_words_count AS (
@@ -245,7 +246,7 @@ export class SessionEventController {
                     key AS forbidden_word,
                     SUM(value::int) AS count
                 FROM filtered_data,
-                LATERAL jsonb_each("forbiddenWords")
+                LATERAL jsonb_each_text("forbiddenWords")
                 GROUP BY key
                 ORDER BY count DESC
                )
@@ -261,7 +262,7 @@ export class SessionEventController {
                 FROM filtered_data
                 GROUP BY name
                 ORDER BY count DESC
-)
+            )
             SELECT
                 (SELECT jsonb_agg(e) FROM emotion_distribution e) AS emotion_pie_chart,
                 (SELECT jsonb_agg(et) FROM emotion_trend et) AS emotion_line_chart,
