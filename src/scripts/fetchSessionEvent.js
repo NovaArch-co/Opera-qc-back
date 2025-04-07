@@ -1,9 +1,9 @@
-import { PrismaClient } from '@prisma/client';
-import { env } from '../common/utils/envConfig';
+const { PrismaClient } = require('@prisma/client');
+require('dotenv').config();
 
 async function fetchSessionEvent() {
     console.log('Connecting to database...');
-    console.log(`Database URL: ${env.DATABASE_URL}`);
+    console.log(`Database URL: ${process.env.DATABASE_URL}`);
 
     const prisma = new PrismaClient();
 
