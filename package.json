@@ -17,7 +17,8 @@
     "format": "biome format src/",
     "test": "vitest run",
     "prepare": "husky",
-    "create-migrate": "npx prisma migrate dev"
+    "create-migrate": "npx prisma migrate dev",
+    "fetch-session": "ts-node src/scripts/fetchSessionEvent.ts"
   },
   "dependencies": {
     "@asteasolutions/zod-to-openapi": "^7.0.0",
