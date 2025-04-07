@@ -181,24 +181,7 @@ export class SessionEventController {
 
     public getSessionsByFilter: RequestHandler = async (req: Request, res: Response) => {
         try {
-            let { from, to } = req.query;
-            console.log("Raw query params:", { from, to });
-
-            if (!from && !to) {
-                from = moment().subtract(7, "days").format("jYYYY-jMM-jDD");
-                to = moment().format("jYYYY-jMM-jDD");
-            } else if (!from && to) {
-                from = moment().subtract(7, "days").format("jYYYY-jMM-jDD");
-            } else if (!to && from) {
-                to = moment().format("jYYYY-jMM-jDD");
-            }
-
-            console.log("Jalali Dates:", { from, to });
-
-            // Convert Jalali to Gregorian for database queries
-            const fromGregorian = moment(from, "jYYYY-jMM-jDD").format("YYYY-MM-DD");
-            const toGregorian = moment(to, "jYYYY-jMM-jDD").format("YYYY-MM-DD");
-            console.log("Gregorian Dates for query:", { fromGregorian, toGregorian });
+            console.log("Fetching all data without date filtering...");
 
             // Check if there are any records in the database at all
             try {
@@ -225,27 +208,13 @@ export class SessionEventController {
                 console.error("Error checking database records:", dbError);
             }
 
-            // First, let's check if we have any data in the date range
-            try {
-                console.log("Executing count query...");
-                const countResult = await prismaClient.$queryRaw`
-                    SELECT COUNT(*) as count 
-                    FROM "SessionEvent" 
-                    WHERE date BETWEEN ${fromGregorian}::TIMESTAMP AND ${toGregorian}::TIMESTAMP
-                `;
-                console.log("Total records in date range:", countResult[0].count);
-            } catch (countError) {
-                console.error("Error executing count query:", countError);
-            }
-
             // Check if we have any records with emotions
             try {
                 console.log("Executing emotion count query...");
                 const emotionCount = await prismaClient.$queryRaw`
                     SELECT COUNT(*) as count 
                     FROM "SessionEvent" 
-                    WHERE emotion IS NOT NULL 
-                    AND date BETWEEN ${fromGregorian}::TIMESTAMP AND ${toGregorian}::TIMESTAMP
+                    WHERE emotion IS NOT NULL
                 `;
                 console.log("Records with emotions:", emotionCount[0].count);
             } catch (emotionError) {
@@ -256,7 +225,6 @@ export class SessionEventController {
             const result = await prismaClient.$queryRaw`
             WITH filtered_data AS (
                 SELECT * FROM "SessionEvent"
-                               WHERE date BETWEEN ${fromGregorian}::TIMESTAMP AND ${toGregorian}::TIMESTAMP
             )
             , emotion_distribution AS (
                 SELECT
