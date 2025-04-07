@@ -131,18 +131,32 @@ export class SessionEventController {
 
     public getSessions: RequestHandler = async (req: Request, res: Response) => {
         try {
-            console.log("Fetching all sessions without date filtering...");
+            console.log("Fetching sessions with pagination...");
 
-            // 🛠 Prisma Raw Query to fetch all sessions
+            // Extract pagination parameters from query
+            const page = parseInt(req.query.page as string) || 1;
+            const limit = parseInt(req.query.limit as string) || 10;
+            const offset = (page - 1) * limit;
+
+            console.log("Pagination params:", { page, limit, offset });
+
+            // Get total count for pagination metadata
+            const totalCountResult = await prismaClient.$queryRaw`
+                SELECT COUNT(*) as total FROM "SessionEvent"
+            `;
+            const totalCount = Number(totalCountResult[0].total || 0);
+
+            // 🛠 Prisma Raw Query to fetch paginated sessions
             const sessionEvents = await prismaClient.$queryRaw`
-            SELECT * FROM "SessionEvent"
-            ORDER BY date DESC
-        `;
+                SELECT * FROM "SessionEvent"
+                ORDER BY date DESC
+                LIMIT ${limit} OFFSET ${offset}
+            `;
 
-            console.log("Fetched Sessions:", sessionEvents.length);
+            console.log("Fetched Sessions:", (sessionEvents as any[]).length);
 
             // 🛠 Format URLs properly
-            const formattedSessions = sessionEvents.map(event => ({
+            const formattedSessions = (sessionEvents as any[]).map(event => ({
                 ...event,
                 incommingfileUrl: event.incommingfileUrl ? `${env.MINIO_ENDPOINT_UTL}${event.incommingfileUrl}` : null,
                 outgoingfileUrl: event.outgoingfileUrl ? `${env.MINIO_ENDPOINT_UTL}${event.outgoingfileUrl}` : null,
@@ -155,8 +169,25 @@ export class SessionEventController {
                     : ""
             }));
 
+            // Create pagination metadata
+            const totalPages = Math.ceil(totalCount / limit);
+            const pagination = {
+                currentPage: page,
+                totalPages,
+                totalItems: totalCount,
+                limit,
+                hasNextPage: page < totalPages,
+                hasPrevPage: page > 1
+            };
+
             return handleServiceResponse(
-                ServiceResponse.success("Session events retrieved successfully", formattedSessions),
+                ServiceResponse.success(
+                    "Session events retrieved successfully",
+                    {
+                        data: formattedSessions,
+                        pagination
+                    }
+                ),
                 res
             );
 
