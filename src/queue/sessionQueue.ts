@@ -88,26 +88,54 @@ export const sessionWorker = new Worker(
             };
 
             // Download audio file from file server
-            const fileUrl = `${env.FILE_SERVER_BASE_URL}${filename}`;
-            const response = await axios.get(fileUrl, {
+            const baseFileName = filename.replace(".wav", "");
+
+            // Download customer file (-in)
+            const customerFileUrl = `${env.FILE_SERVER_BASE_URL}${baseFileName}-in`;
+            console.log("Downloading customer file from:", customerFileUrl);
+            const customerResponse = await axios.get(customerFileUrl, {
                 responseType: 'arraybuffer',
                 auth: auth
             });
-            const audioBuffer = Buffer.from(response.data);
+            const customerAudioBuffer = Buffer.from(customerResponse.data);
+
+            // Download agent file (-out)
+            const agentFileUrl = `${env.FILE_SERVER_BASE_URL}${baseFileName}-out`;
+            console.log("Downloading agent file from:", agentFileUrl);
+            const agentResponse = await axios.get(agentFileUrl, {
+                responseType: 'arraybuffer',
+                auth: auth
+            });
+            const agentAudioBuffer = Buffer.from(agentResponse.data);
 
             // Ensure bucket exists before uploading
             await ensureBucketExists(BUCKET_NAME);
 
-            // Upload to MinIO
-            const key = `${filename}.wav`;
+            // Upload both files to MinIO
+            const customerKey = `${baseFileName}-in.wav`;
+            const agentKey = `${baseFileName}-out.wav`;
+
+            // Upload customer file
             await s3Client.send(
                 new PutObjectCommand({
                     Bucket: BUCKET_NAME,
-                    Key: key,
-                    Body: audioBuffer,
+                    Key: customerKey,
+                    Body: customerAudioBuffer,
                     ContentType: 'audio/wav'
                 })
             );
+            console.log("Uploaded customer file to MinIO:", customerKey);
+
+            // Upload agent file
+            await s3Client.send(
+                new PutObjectCommand({
+                    Bucket: BUCKET_NAME,
+                    Key: agentKey,
+                    Body: agentAudioBuffer,
+                    ContentType: 'audio/wav'
+                })
+            );
+            console.log("Uploaded agent file to MinIO:", agentKey);
 
             // Create temporary files for transcription
             const tempDir = path.join(os.tmpdir(), 'opera-qc');
@@ -115,13 +143,13 @@ export const sessionWorker = new Worker(
                 fs.mkdirSync(tempDir, { recursive: true });
             }
 
-            const tempFilePath = path.join(tempDir, `${filename}.wav`);
-            fs.writeFileSync(tempFilePath, audioBuffer);
+            // Save customer file
+            const customerFilePath = path.join(tempDir, `${baseFileName}-in.wav`);
+            fs.writeFileSync(customerFilePath, customerAudioBuffer);
 
-            // We need two files for transcription (customer and agent)
-            // For now, we'll use the same file for both to demonstrate the flow
-            const customerFilePath = tempFilePath;
-            const agentFilePath = tempFilePath;
+            // Save agent file
+            const agentFilePath = path.join(tempDir, `${baseFileName}-out.wav`);
+            fs.writeFileSync(agentFilePath, agentAudioBuffer);
 
             // Map the snake_case fields to camelCase fields for Prisma
             // const sessionEvent = await prisma.sessionEvent.create({
@@ -211,7 +239,8 @@ export const sessionWorker = new Worker(
 
             // Clean up temp files
             try {
-                fs.unlinkSync(tempFilePath);
+                fs.unlinkSync(customerFilePath);
+                fs.unlinkSync(agentFilePath);
             } catch (cleanupError) {
                 console.error("Error cleaning up temp files:", cleanupError);
             }
