@@ -124,25 +124,25 @@ export const sessionWorker = new Worker(
             const agentFilePath = tempFilePath;
 
             // Map the snake_case fields to camelCase fields for Prisma
-            // const sessionEvent = await prisma.sessionEvent.create({
-            //     data: {
-            //         level: 30, // Default log level (info)
-            //         time: new Date().toISOString(),
-            //         pid: process.pid,
-            //         hostname: os.hostname(),
-            //         name: "SESSION_EVENT",
-            //         msg: `Call recorded: ${filename}`,
-            //         type,
-            //         sourceChannel: sourceChannelValue,
-            //         sourceNumber: sourceNumberValue,
-            //         queue: queueValue,
-            //         destChannel: destChannelValue,
-            //         destNumber: destNumberValue,
-            //         date: new Date(date),
-            //         duration,
-            //         filename
-            //     }
-            // });
+            const sessionEvent = await prisma.sessionEvent.create({
+                data: {
+                    level: 30, // Default log level (info)
+                    time: new Date().toISOString(),
+                    pid: process.pid,
+                    hostname: os.hostname(),
+                    name: "SESSION_EVENT",
+                    msg: `Call recorded: ${filename}`,
+                    type,
+                    sourceChannel: sourceChannelValue,
+                    sourceNumber: sourceNumberValue,
+                    queue: queueValue,
+                    destChannel: destChannelValue,
+                    destNumber: destNumberValue,
+                    date: new Date(date),
+                    duration,
+                    filename
+                }
+            });
 
             // console.log("Created session event:", sessionEvent);
 
