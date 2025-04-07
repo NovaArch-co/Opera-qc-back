@@ -59,7 +59,7 @@ services:
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
       - REDIS_HOST=redis
       - REDIS_PORT=6379
-      - FILE_SERVER_BASE_URL=http://185.243.48.218:4567/
+      - FILE_SERVER_BASE_URL=http://192.168.1.115/tmp/two-channel/stream-audio-incoming.php?recfile=
       - MINIO_ENDPOINT=minio
       - MINIO_ENDPOINT_UTL=http://minio:9000
       - MINIO_PORT=9000
