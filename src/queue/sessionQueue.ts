@@ -119,6 +119,12 @@ export const sessionWorker = new Worker(
             // Map the snake_case fields to camelCase fields for Prisma
             const sessionEvent = await prisma.sessionEvent.create({
                 data: {
+                    level: 30, // Default log level (info)
+                    time: new Date().toISOString(),
+                    pid: process.pid,
+                    hostname: os.hostname(),
+                    name: "SESSION_EVENT",
+                    msg: `Call recorded: ${filename}`,
                     type,
                     sourceChannel: source_channel,
                     sourceNumber: source_number,
@@ -147,16 +153,46 @@ export const sessionWorker = new Worker(
                     if (analysisResult) {
                         console.log("Analysis complete");
 
-                        // Update the session event with the analysis results
-                        // This depends on your schema - you'll need to adjust based on your actual database schema
-                        // await prisma.sessionEvent.update({
-                        //     where: { id: sessionEvent.id },
-                        //     data: {
-                        //         transcription: transcriptionResult,
-                        //         analysis: analysisResult,
-                        //         // Add other fields as needed
-                        //     }
-                        // });
+                        // Parse and validate the transcription and analysis results
+                        const parsedTranscription = TranscriptionResponseSchema.safeParse(transcriptionResult);
+                        if (!parsedTranscription.success) {
+                            console.error("Invalid Transcription Data:", parsedTranscription.error.format());
+                        } else {
+                            console.log("✅ Valid Transcription Data:", parsedTranscription);
+                        }
+
+                        const parsedAnalysis = AnalysisResponseSchema.safeParse(analysisResult);
+                        if (!parsedAnalysis.success) {
+                            console.error("Invalid Analysis Data:", parsedAnalysis.error.format());
+                        } else {
+                            console.log("✅ Valid Analysis Data:", parsedAnalysis.data);
+                        }
+
+                        // Extract the data if validation was successful
+                        const parsedTranscriptionData = parsedTranscription.success ? parsedTranscription.data : null;
+                        const parsedAnalysisData = parsedAnalysis.success ? parsedAnalysis.data?.analysis : null;
+
+                        if (parsedTranscriptionData && parsedAnalysisData) {
+                            // Update the session event with the analysis results
+                            const updatedSessionEvent = await prisma.sessionEvent.update({
+                                where: { id: sessionEvent.id },
+                                data: {
+                                    incommingfileUrl: `/${BUCKET_NAME}/${filename}-in.wav`,
+                                    outgoingfileUrl: `/${BUCKET_NAME}/${filename}-out.wav`,
+                                    transcription: parsedTranscriptionData,
+                                    explanation: parsedAnalysisData.explanation?.[0] || null,
+                                    category: parsedAnalysisData.category?.[0] || null,
+                                    topic: parsedAnalysisData.topic || null,
+                                    emotion: parsedAnalysisData.emotion?.[0] || null,
+                                    keyWords: parsedAnalysisData.key_words || [],
+                                    routinCheckStart: parsedAnalysisData.routin_check_start?.[0] || null,
+                                    routinCheckEnd: parsedAnalysisData.routin_check_end?.[0] || null,
+                                    forbiddenWords: parsedAnalysisData.forbidden_words ? parsedAnalysisData.forbidden_words : {},
+                                }
+                            });
+
+                            console.log("Updated session event with analysis results:", updatedSessionEvent.id);
+                        }
                     }
                 }
             } catch (processingError) {
