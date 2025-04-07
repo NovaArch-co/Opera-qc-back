@@ -1,4 +1,5 @@
 import { Queue, Worker } from 'bullmq';
+import { PrismaClient } from '@prisma/client';
 import { sendAudioRequests } from '@/api/session/session';
 import { uploadToMinIO } from '@/api/session/session';
 import { sendFilesToTranscriptionAPI } from '@/api/session/session';
@@ -10,8 +11,8 @@ import fs from 'fs';
 import { S3Client, PutObjectCommand, ListBucketsCommand, CreateBucketCommand, HeadBucketCommand } from '@aws-sdk/client-s3';
 import axios from 'axios';
 import os from 'os';
-import prisma from '@/common/utils/prisma';
 
+const prisma = new PrismaClient();
 const s3Client = new S3Client({
     region: "us-east-1",
     endpoint: env.MINIO_ENDPOINT_UTL,
@@ -55,7 +56,7 @@ export const sessionQueue = new Queue('session-processing', {
 
 // Create a worker to process the queue
 export const sessionWorker = new Worker(
-    'session-processing',
+    env.BULL_QUEUE,
     async (job) => {
         try {
             // Get the data in the format it comes from the external service
@@ -250,29 +251,17 @@ export const sessionWorker = new Worker(
                 sessionEventId: sessionEvent.id
             };
         } catch (error) {
-            console.error('Error processing job:', error);
+            console.error('Error processing session:', error);
             throw error;
         }
     },
     {
         connection: {
-            host: env.REDIS_HOST || 'localhost',
-            port: String(parseInt(env.REDIS_PORT || '6379', 10)),
-        }
+            host: env.REDIS_HOST,
+            port: String(parseInt(env.REDIS_PORT, 10)),
+        },
+        concurrency: 5,
+        removeOnComplete: { count: 1000 },
+        removeOnFail: { count: 5000 }
     }
-);
-
-// Add cleanup handlers
-process.on('SIGTERM', async () => {
-    await sessionWorker.close();
-    await sessionQueue.close();
-    await s3Client.destroy();
-    await prisma.$disconnect();
-});
-
-process.on('SIGINT', async () => {
-    await sessionWorker.close();
-    await sessionQueue.close();
-    await s3Client.destroy();
-    await prisma.$disconnect();
-}); 
+); 

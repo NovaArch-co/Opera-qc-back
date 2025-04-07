@@ -1,13 +1,13 @@
 import type { Request, RequestHandler, Response } from "express";
 import { ServiceResponse } from "@/common/models/serviceResponse";
 import { handleServiceResponse } from "@/common/utils/httpHandlers";
+import { PrismaClient } from "@prisma/client";
 import { StatusCodes } from "http-status-codes";
 import moment from 'moment-jalaali';
 import { createApiResponse } from "@/common/utils/createApiResponse";
 import { Queue } from "bullmq";
 import { env } from "@/common/utils/envConfig";
 import prisma from "@/common/utils/prisma";
-import { reconnectToDatabase } from "@/common/utils/dbHealthCheck";
 import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import path from "node:path";
 import fs from "node:fs";
@@ -21,6 +21,8 @@ const sessionQueue = new Queue(env.BULL_QUEUE, {
         port: parseInt(env.REDIS_PORT, 10),
     }
 });
+
+const prismaClient = new PrismaClient();
 
 const s3Client = new S3Client({
     region: "us-east-1",
@@ -101,7 +103,7 @@ export class SessionEventController {
         const { id } = req.params;
 
         try {
-            let sessionEvent = await prisma.sessionEvent.findUnique({
+            let sessionEvent = await prismaClient.sessionEvent.findUnique({
                 where: { id: Number(id) },
             });
 
@@ -136,99 +138,43 @@ export class SessionEventController {
                 from = moment().subtract(7, "days").format("jYYYY-jMM-jDD");
                 to = moment().format("jYYYY-jMM-jDD");
             } else if (!from && to) {
-                from = moment(to as string, "jYYYY-jMM-jDD").subtract(7, "days").format("jYYYY-jMM-jDD");
+                from = moment(to, "jYYYY-jMM-jDD").subtract(7, "days").format("jYYYY-jMM-jDD");
             } else if (!to && from) {
                 to = moment().format("jYYYY-jMM-jDD") + "T00:00.000Z";
             }
 
             console.log("Received Jalali Dates:", { from, to });
 
-            try {
-                // Clear the query plan cache to avoid the "cached plan must not change result type" error
-                await prisma.$executeRaw`DISCARD ALL;`;
+            // 🛠 Prisma Raw Query to fetch sessions
+            const sessionEvents = await prismaClient.$queryRaw`
+            SELECT * FROM "SessionEvent"
+            WHERE date BETWEEN ${from}::TIMESTAMP AND ${to}::TIMESTAMP
+            ORDER BY date DESC
+        `;
 
-                // Instead of using raw SQL with prepared statements, let's use Prisma's query builder
-                // First, get all session events in the date range
-                const sessionEvents = await prisma.sessionEvent.findMany({
-                    where: {
-                        date: {
-                            gte: new Date(from as string),
-                            lte: new Date(to as string)
-                        }
-                    },
-                    orderBy: {
-                        date: 'desc'
-                    }
-                });
+            console.log("Fetched Sessions:", sessionEvents.length);
 
-                console.log("Fetched Sessions:", sessionEvents.length);
+            // 🛠 Format URLs properly
+            const formattedSessions = sessionEvents.map(event => ({
+                ...event,
+                incommingfileUrl: event.incommingfileUrl ? `${env.MINIO_ENDPOINT_UTL}${event.incommingfileUrl}` : null,
+                outgoingfileUrl: event.outgoingfileUrl ? `${env.MINIO_ENDPOINT_UTL}${event.outgoingfileUrl}` : null,
+                forbiddenWords: event.forbiddenWords || {},
+                topic: event.topic && Object.keys(event.topic).length > 0 ? Object.keys(event.topic)[0] : "",
+                subTopic: (Object.values(event.topic).length > 0) ? Object.values(event.topic)[0] : ""
+            }));
 
-                // 🛠 Format URLs properly
-                const formattedSessions = sessionEvents.map((event) => ({
-                    ...event,
-                    incommingfileUrl: event.incommingfileUrl ? `${env.MINIO_ENDPOINT_UTL}${event.incommingfileUrl}` : null,
-                    outgoingfileUrl: event.outgoingfileUrl ? `${env.MINIO_ENDPOINT_UTL}${event.outgoingfileUrl}` : null,
-                    forbiddenWords: event.forbiddenWords || {},
-                    topic: event.topic && typeof event.topic === 'object' && Object.keys(event.topic).length > 0 ? Object.keys(event.topic)[0] : "",
-                    subTopic: event.topic && typeof event.topic === 'object' && Object.values(event.topic).length > 0 ? Object.values(event.topic)[0] : ""
-                }));
+            return handleServiceResponse(
+                ServiceResponse.success("Session events retrieved successfully", formattedSessions),
+                res
+            );
 
-                return res.status(StatusCodes.OK).json(formattedSessions);
-            } catch (error) {
-                console.error("Database query error:", error);
-
-                // Check if it's a connection error
-                if (error instanceof Error &&
-                    (error.message.includes("prepared statement") ||
-                        error.message.includes("connection") ||
-                        error.message.includes("timeout"))) {
-
-                    // Try to reconnect to the database
-                    const reconnected = await reconnectToDatabase();
-                    if (reconnected) {
-                        // Try the query again after reconnecting
-                        try {
-                            const sessionEvents = await prisma.sessionEvent.findMany({
-                                where: {
-                                    date: {
-                                        gte: new Date(from as string),
-                                        lte: new Date(to as string)
-                                    }
-                                },
-                                orderBy: {
-                                    date: 'desc'
-                                }
-                            });
-
-                            console.log("Fetched Sessions after reconnection:", sessionEvents.length);
-
-                            const formattedSessions = sessionEvents.map((event) => ({
-                                ...event,
-                                incommingfileUrl: event.incommingfileUrl ? `${env.MINIO_ENDPOINT_UTL}${event.incommingfileUrl}` : null,
-                                outgoingfileUrl: event.outgoingfileUrl ? `${env.MINIO_ENDPOINT_UTL}${event.outgoingfileUrl}` : null,
-                                forbiddenWords: event.forbiddenWords || {},
-                                topic: event.topic && typeof event.topic === 'object' && Object.keys(event.topic).length > 0 ? Object.keys(event.topic)[0] : "",
-                                subTopic: event.topic && typeof event.topic === 'object' && Object.values(event.topic).length > 0 ? Object.values(event.topic)[0] : ""
-                            }));
-
-                            return res.status(StatusCodes.OK).json(formattedSessions);
-                        } catch (retryError) {
-                            console.error("Database retry error:", retryError);
-                        }
-                    }
-                }
-
-                return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
-                    message: "Failed to fetch sessions",
-                    error: error instanceof Error ? error.message : "Unknown error"
-                });
-            }
         } catch (error) {
-            console.error("Error in getSessions:", error);
-            return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
-                message: "An unexpected error occurred",
-                error: error instanceof Error ? error.message : "Unknown error"
-            });
+            console.error("Error fetching session events:", error);
+            return handleServiceResponse(
+                ServiceResponse.failure("Error fetching session events", error, StatusCodes.INTERNAL_SERVER_ERROR),
+                res
+            );
         }
     };
 
@@ -247,122 +193,105 @@ export class SessionEventController {
 
         console.log("Jalali Dates:", { from, to });
 
+        // Convert Jalali to Gregorian before querying the database
+        // const fromGregorian = moment(from, "jYYYY-jMM-jDD").startOf("day").format("YYYY-MM-DD HH:mm:ss");
+        // const toGregorian = moment(to, "jYYYY-jMM-jDD").endOf("day").format("YYYY-MM-DD HH:mm:ss");
+
+
+        // from = from + "T00:00.000Z";
+        // to = to + "T00:00.000Z";
+
         try {
-            // Instead of using raw SQL with prepared statements, let's use Prisma's query builder
-            // First, get all session events in the date range
-            const sessionEvents = await prisma.sessionEvent.findMany({
-                where: {
-                    date: {
-                        gte: new Date(from as string),
-                        lte: new Date(to as string)
-                    }
-                }
-            });
 
-            // Process emotion distribution
-            const emotionMap = new Map<string, number>();
-            sessionEvents.forEach(event => {
-                if (event.emotion) {
-                    emotionMap.set(event.emotion, (emotionMap.get(event.emotion) || 0) + 1);
-                }
-            });
-            const emotionPieChart = Array.from(emotionMap.entries())
-                .map(([emotion, count]) => ({ emotion, count }));
-
-            // Process emotion trend
-            const emotionTrendMap = new Map<string, Map<string, number>>();
-            sessionEvents.forEach(event => {
-                if (event.emotion && event.date) {
-                    const dateStr = moment(event.date).format('YYYY-MM-DD');
-                    if (!emotionTrendMap.has(dateStr)) {
-                        emotionTrendMap.set(dateStr, new Map<string, number>());
-                    }
-                    const dateMap = emotionTrendMap.get(dateStr)!;
-                    dateMap.set(event.emotion, (dateMap.get(event.emotion) || 0) + 1);
-                }
-            });
-
-            // Convert to the format needed for the line chart
-            const emotionLineChart: Record<string, Record<string, number>> = {};
-            emotionTrendMap.forEach((dateMap, dateStr) => {
-                emotionLineChart[dateStr] = {};
-                dateMap.forEach((count, emotion) => {
-                    emotionLineChart[dateStr][emotion] = count;
-                });
-            });
-
-            // Process top destinations
-            const destMap = new Map<string, number>();
-            sessionEvents.forEach(event => {
-                if (event.destNumber) {
-                    destMap.set(event.destNumber, (destMap.get(event.destNumber) || 0) + 1);
-                }
-            });
-            const topDestinations = Array.from(destMap.entries())
-                .map(([dest_number, count]) => ({ dest_number, count }))
-                .sort((a, b) => b.count - a.count)
-                .slice(0, 10);
-
-            // Process keyWords
-            const keyWordsMap = new Map<string, number>();
-            sessionEvents.forEach(event => {
-                if (event.keyWords && Array.isArray(event.keyWords)) {
-                    event.keyWords.forEach(word => {
-                        keyWordsMap.set(word, (keyWordsMap.get(word) || 0) + 1);
-                    });
-                }
-            });
-            const keyWordsTable = Array.from(keyWordsMap.entries())
-                .map(([key_words, count]) => ({ key_words, count }))
-                .sort((a, b) => b.count - a.count);
-
-            // Process forbiddenWords
-            const forbiddenWordsMap = new Map<string, number>();
-            sessionEvents.forEach(event => {
-                if (event.forbiddenWords && typeof event.forbiddenWords === 'object') {
-                    Object.entries(event.forbiddenWords as Record<string, number>).forEach(([word, count]) => {
-                        forbiddenWordsMap.set(word, (forbiddenWordsMap.get(word) || 0) + count);
-                    });
-                }
-            });
-            const forbiddenWordsTable = Array.from(forbiddenWordsMap.entries())
-                .map(([forbidden_word, count]) => ({ forbidden_word, count }))
-                .sort((a, b) => b.count - a.count);
-
-            // Process top agent count
-            const agentMap = new Map<string, { count: number, totalDurationSeconds: number }>();
-            sessionEvents.forEach(event => {
-                if (event.name) {
-                    const durationParts = event.duration.split(':');
-                    const hours = parseInt(durationParts[0], 10);
-                    const minutes = parseInt(durationParts[1], 10);
-                    const seconds = parseInt(durationParts[2], 10);
-                    const totalDurationSeconds = (hours * 3600) + (minutes * 60) + seconds;
-
-                    const existing = agentMap.get(event.name) || { count: 0, totalDurationSeconds: 0 };
-                    agentMap.set(event.name, {
-                        count: existing.count + 1,
-                        totalDurationSeconds: existing.totalDurationSeconds + totalDurationSeconds
-                    });
-                }
-            });
-            const topAgentCount = Array.from(agentMap.entries())
-                .map(([name, data]) => ({
+            const result = await prismaClient.$queryRaw`
+            WITH filtered_data AS (
+                SELECT * FROM "SessionEvent"
+                               WHERE date BETWEEN ${from}::TIMESTAMP AND ${to}::TIMESTAMP
+            )
+            , emotion_distribution AS (
+                SELECT
+                    emotion,
+                    COUNT(*) AS count
+                FROM filtered_data
+                GROUP BY emotion
+            )
+            , emotion_trend AS (
+                SELECT
+                    emotion,
+                    TO_CHAR(date, 'YYYY-MM-DD') AS call_date,
+                    COUNT(*) AS count
+                FROM filtered_data
+                GROUP BY emotion, call_date
+            )
+            , top_destinations AS (
+                SELECT
+                    dest_number,
+                    COUNT(*) AS count
+                FROM filtered_data
+                WHERE dest_number IS NOT NULL
+                GROUP BY dest_number
+                ORDER BY count DESC
+                LIMIT 10
+            )
+            , key_words_count AS (
+                SELECT
+                    unnest("keyWords") AS key_words,
+                    COUNT(*) AS count
+                FROM filtered_data
+                WHERE "keyWords" IS NOT NULL
+                GROUP BY key_words
+                ORDER BY count DESC
+            ), forbidden_words_count AS (
+                SELECT
+                    key AS forbidden_word,
+                    SUM(value::int) AS count
+                FROM filtered_data,
+                LATERAL jsonb_each_text("forbiddenWords")
+                GROUP BY key
+                ORDER BY count DESC
+               )
+            , top_agent_count AS (
+                SELECT
                     name,
-                    total_duration_seconds: data.totalDurationSeconds,
-                    count: data.count
-                }))
-                .sort((a, b) => b.count - a.count);
+                    SUM(
+                        (split_part(duration, ':', 1)::INT * 3600) +  -- Hours to seconds
+                        (split_part(duration, ':', 2)::INT * 60) +    -- Minutes to seconds
+                        (split_part(duration, ':', 3)::INT)           -- Seconds
+                    ) AS total_duration_seconds,
+                    COUNT(*) AS count
+                FROM filtered_data
+                GROUP BY name
+                ORDER BY count DESC
+            )
+            SELECT
+                (SELECT jsonb_agg(e) FROM emotion_distribution e) AS emotion_pie_chart,
+                (SELECT jsonb_agg(et) FROM emotion_trend et) AS emotion_line_chart,
+                (SELECT jsonb_agg(td) FROM top_destinations td) AS top_destinations,
+                (SELECT jsonb_agg(fw) FROM forbidden_words_count fw) AS forbidden_words_table,
+                (SELECT jsonb_agg(kw) FROM key_words_count kw) AS key_words_table,
+                (SELECT jsonb_agg(ta) FROM top_agent_count ta) AS top_agent_count;
+        `;
 
-            const responseData = {
-                emotion_pie_chart: emotionPieChart,
-                emotion_line_chart: emotionLineChart,
-                top_destinations: topDestinations,
-                forbidden_words_table: forbiddenWordsTable,
-                key_words_table: keyWordsTable,
-                top_agent_count: topAgentCount,
+            const formatLineChart = (data: any[], keyField: string) => {
+                const transformedData: Record<string, Record<string, number>> = {};
+                data.forEach(({ call_date, [keyField]: key, count }) => {
+                    if (!transformedData[call_date]) {
+                        transformedData[call_date] = {};
+                    }
+                    transformedData[call_date][key] = count;
+                });
+                return transformedData;
             };
 
+            const emotionLineChart = formatLineChart(result[0]?.emotion_line_chart || [], "emotion");
+            const responseData = {
+                emotion_pie_chart: result[0]?.emotion_pie_chart || [],
+                emotion_line_chart: emotionLineChart,
+                top_destinations: result[0]?.top_destinations || [],
+                forbidden_words_table: result[0]?.forbidden_words_table || [],
+                key_words_table: result[0]?.key_words_table || [],
+                top_agent_count: result[0]?.top_agent_count || [],
+            };
             const serviceResponse = ServiceResponse.success("Session events retrieved successfully", responseData);
             return handleServiceResponse(serviceResponse, res);
         } catch (error) {
