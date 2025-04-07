@@ -62,11 +62,11 @@ export const sessionWorker = new Worker(
             // Get the data in the format it comes from the external service
             const {
                 type,
-                sourceChannel,   // updated to camelCase
-                sourceNumber,    // updated to camelCase
+                source_channel,
+                source_number,
                 queue,
-                destChannel,     // updated to camelCase
-                destNumber,      // updated to camelCase
+                dest_channel,
+                dest_number,
                 date,
                 duration,
                 filename
@@ -102,23 +102,74 @@ export const sessionWorker = new Worker(
                 })
             );
 
+            // Create temporary files for transcription
+            const tempDir = path.join(os.tmpdir(), 'opera-qc');
+            if (!fs.existsSync(tempDir)) {
+                fs.mkdirSync(tempDir, { recursive: true });
+            }
+
+            const tempFilePath = path.join(tempDir, `${filename}.wav`);
+            fs.writeFileSync(tempFilePath, audioBuffer);
+
+            // We need two files for transcription (customer and agent)
+            // For now, we'll use the same file for both to demonstrate the flow
+            const customerFilePath = tempFilePath;
+            const agentFilePath = tempFilePath;
+
             // Map the snake_case fields to camelCase fields for Prisma
             const sessionEvent = await prisma.sessionEvent.create({
                 data: {
                     type,
-                    sourceChannel,
-                    sourceNumber,
+                    sourceChannel: source_channel,
+                    sourceNumber: source_number,
                     queue,
-                    destChannel,
-                    destNumber,
+                    destChannel: dest_channel,
+                    destNumber: dest_number,
                     date: new Date(date),
                     duration,
                     filename
                 }
             });
 
-
             console.log("Created session event:", sessionEvent);
+
+            try {
+                // Step 3: Send files to transcription API
+                console.log("Sending files to transcription API...");
+                const transcriptionResult = await sendFilesToTranscriptionAPI(customerFilePath, agentFilePath);
+
+                if (transcriptionResult) {
+                    console.log("Transcription complete, sending for analysis...");
+
+                    // Step 4: Send transcription to analysis API
+                    const analysisResult = await sendToAnalysisAPI(transcriptionResult);
+
+                    if (analysisResult) {
+                        console.log("Analysis complete");
+
+                        // Update the session event with the analysis results
+                        // This depends on your schema - you'll need to adjust based on your actual database schema
+                        // await prisma.sessionEvent.update({
+                        //     where: { id: sessionEvent.id },
+                        //     data: {
+                        //         transcription: transcriptionResult,
+                        //         analysis: analysisResult,
+                        //         // Add other fields as needed
+                        //     }
+                        // });
+                    }
+                }
+            } catch (processingError) {
+                console.error("Error in post-processing:", processingError);
+                // Continue execution - we don't want to fail the job if just the analysis fails
+            }
+
+            // Clean up temp files
+            try {
+                fs.unlinkSync(tempFilePath);
+            } catch (cleanupError) {
+                console.error("Error cleaning up temp files:", cleanupError);
+            }
 
             return {
                 success: true,
