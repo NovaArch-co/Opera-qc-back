@@ -49,9 +49,18 @@ export const sessionWorker = new Worker(
                 filename
             } = job.data;
 
+            // Basic auth credentials for file server
+            const auth = {
+                username: "FaraErtebat",
+                password: "Goz@r!AsreFar@Erteb@t!1403"
+            };
+
             // Download audio file from file server
             const fileUrl = `${env.FILE_SERVER_BASE_URL}${filename}`;
-            const response = await axios.get(fileUrl, { responseType: 'arraybuffer' });
+            const response = await axios.get(fileUrl, {
+                responseType: 'arraybuffer',
+                auth: auth
+            });
             const audioBuffer = Buffer.from(response.data);
 
             // Upload to MinIO
