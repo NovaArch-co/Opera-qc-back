@@ -62,11 +62,11 @@ export const sessionWorker = new Worker(
             // Get the data in the format it comes from the external service
             const {
                 type,
-                source_channel,
-                source_number,
+                sourceChannel,   // updated to camelCase
+                sourceNumber,    // updated to camelCase
                 queue,
-                dest_channel,
-                dest_number,
+                destChannel,     // updated to camelCase
+                destNumber,      // updated to camelCase
                 date,
                 duration,
                 filename
@@ -106,16 +106,17 @@ export const sessionWorker = new Worker(
             const sessionEvent = await prisma.sessionEvent.create({
                 data: {
                     type,
-                    sourceChannel: source_channel,
-                    sourceNumber: source_number,
+                    sourceChannel,
+                    sourceNumber,
                     queue,
-                    destChannel: dest_channel,
-                    destNumber: dest_number,
+                    destChannel,
+                    destNumber,
                     date: new Date(date),
                     duration,
                     filename
                 }
             });
+
 
             console.log("Created session event:", sessionEvent);
 
