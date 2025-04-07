@@ -200,7 +200,7 @@ export const sessionWorker = new Worker(
                             //     }
                             // });
 
-                            console.log("Updated session event with analysis results:", updatedSessionEvent.id);
+                            // console.log("Updated session event with analysis results:", updatedSessionEvent.id);
                         }
                     }
                 }
@@ -218,7 +218,7 @@ export const sessionWorker = new Worker(
 
             return {
                 success: true,
-                sessionEventId: sessionEvent.id
+                // sessionEventId: sessionEvent.id
             };
         } catch (error) {
             console.error('Error processing session:', error);
