@@ -168,7 +168,8 @@ export const sessionWorker = new Worker(
                     destNumber: destNumberValue,
                     date: new Date(date),
                     duration,
-                    filename
+                    filename,
+                    keyWords: [] // Initialize with empty array
                 }
             });
 
@@ -221,7 +222,7 @@ export const sessionWorker = new Worker(
                                     category: parsedAnalysisData.category?.[0] || null,
                                     topic: parsedAnalysisData.topic || null,
                                     emotion: parsedAnalysisData.emotion?.[0] || null,
-                                    keyWords: parsedAnalysisData.key_words || [],
+                                    keyWords: Array.isArray(parsedAnalysisData.key_words) ? parsedAnalysisData.key_words : [],
                                     routinCheckStart: parsedAnalysisData.routin_check_start?.[0] || null,
                                     routinCheckEnd: parsedAnalysisData.routin_check_end?.[0] || null,
                                     forbiddenWords: parsedAnalysisData.forbidden_words ? parsedAnalysisData.forbidden_words : {},

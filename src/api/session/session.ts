@@ -138,12 +138,15 @@ export class SessionEventController {
                 from = moment().subtract(7, "days").format("jYYYY-jMM-jDD");
                 to = moment().format("jYYYY-jMM-jDD");
             } else if (!from && to) {
-                from = moment(to, "jYYYY-jMM-jDD").subtract(7, "days").format("jYYYY-jMM-jDD");
+                from = moment(to as string, "jYYYY-jMM-jDD").subtract(7, "days").format("jYYYY-jMM-jDD");
             } else if (!to && from) {
                 to = moment().format("jYYYY-jMM-jDD") + "T00:00.000Z";
             }
 
             console.log("Received Jalali Dates:", { from, to });
+
+            // Clear the query plan cache to avoid the "cached plan must not change result type" error
+            await prismaClient.$executeRaw`DISCARD ALL;`;
 
             // 🛠 Prisma Raw Query to fetch sessions
             const sessionEvents = await prismaClient.$queryRaw`
@@ -152,16 +155,16 @@ export class SessionEventController {
             ORDER BY date DESC
         `;
 
-            console.log("Fetched Sessions:", sessionEvents.length);
+            console.log("Fetched Sessions:", (sessionEvents as any[]).length);
 
             // 🛠 Format URLs properly
-            const formattedSessions = sessionEvents.map(event => ({
+            const formattedSessions = (sessionEvents as any[]).map((event: any) => ({
                 ...event,
                 incommingfileUrl: event.incommingfileUrl ? `${env.MINIO_ENDPOINT_UTL}${event.incommingfileUrl}` : null,
                 outgoingfileUrl: event.outgoingfileUrl ? `${env.MINIO_ENDPOINT_UTL}${event.outgoingfileUrl}` : null,
                 forbiddenWords: event.forbiddenWords || {},
-                topic: event.topic && Object.keys(event.topic).length > 0 ? Object.keys(event.topic)[0] : "",
-                subTopic: (Object.values(event.topic).length > 0) ? Object.values(event.topic)[0] : ""
+                topic: event.topic && typeof event.topic === 'object' && Object.keys(event.topic).length > 0 ? Object.keys(event.topic)[0] : "",
+                subTopic: event.topic && typeof event.topic === 'object' && Object.values(event.topic).length > 0 ? Object.values(event.topic)[0] : ""
             }));
 
             return handleServiceResponse(
@@ -191,22 +194,13 @@ export class SessionEventController {
             to = moment().format("jYYYY-jMM-jDD");
         }
 
-        console.log("Jalali Dates:", { from, to });
-
-        // Convert Jalali to Gregorian before querying the database
-        // const fromGregorian = moment(from, "jYYYY-jMM-jDD").startOf("day").format("YYYY-MM-DD HH:mm:ss");
-        // const toGregorian = moment(to, "jYYYY-jMM-jDD").endOf("day").format("YYYY-MM-DD HH:mm:ss");
-
-
-        // from = from + "T00:00.000Z";
-        // to = to + "T00:00.000Z";
 
         try {
-
+            // Use a simpler query approach that doesn't rely on unnest or jsonb_each
             const result = await prismaClient.$queryRaw`
             WITH filtered_data AS (
                 SELECT * FROM "SessionEvent"
-                               WHERE date BETWEEN ${from}::TIMESTAMP AND ${to}::TIMESTAMP
+                WHERE date BETWEEN ${from}::TIMESTAMP AND ${to}::TIMESTAMP
             )
             , emotion_distribution AS (
                 SELECT
@@ -233,23 +227,6 @@ export class SessionEventController {
                 ORDER BY count DESC
                 LIMIT 10
             )
-            , key_words_count AS (
-                SELECT
-                    unnest("keyWords") AS key_words,
-                    COUNT(*) AS count
-                FROM filtered_data
-                WHERE "keyWords" IS NOT NULL
-                GROUP BY key_words
-                ORDER BY count DESC
-            ), forbidden_words_count AS (
-                SELECT
-                    key AS forbidden_word,
-                    SUM(value::int) AS count
-                FROM filtered_data,
-                LATERAL jsonb_each_text("forbiddenWords")
-                GROUP BY key
-                ORDER BY count DESC
-               )
             , top_agent_count AS (
                 SELECT
                     name,
@@ -267,10 +244,52 @@ export class SessionEventController {
                 (SELECT jsonb_agg(e) FROM emotion_distribution e) AS emotion_pie_chart,
                 (SELECT jsonb_agg(et) FROM emotion_trend et) AS emotion_line_chart,
                 (SELECT jsonb_agg(td) FROM top_destinations td) AS top_destinations,
-                (SELECT jsonb_agg(fw) FROM forbidden_words_count fw) AS forbidden_words_table,
-                (SELECT jsonb_agg(kw) FROM key_words_count kw) AS key_words_table,
                 (SELECT jsonb_agg(ta) FROM top_agent_count ta) AS top_agent_count;
-        `;
+            `;
+
+            // For keyWords and forbiddenWords, we'll fetch them separately and process in JavaScript
+            const sessionEvents = await prismaClient.sessionEvent.findMany({
+                where: {
+                    date: {
+                        gte: new Date(from as string),
+                        lte: new Date(to as string)
+                    }
+                },
+                select: {
+                    keyWords: true,
+                    forbiddenWords: true
+                }
+            });
+
+            // Process keyWords
+            const keyWordsMap = new Map<string, number>();
+            sessionEvents.forEach(event => {
+                if (event.keyWords && Array.isArray(event.keyWords)) {
+                    event.keyWords.forEach(word => {
+                        keyWordsMap.set(word, (keyWordsMap.get(word) || 0) + 1);
+                    });
+                }
+            });
+
+            // Convert to array and sort by count
+            const keyWordsTable = Array.from(keyWordsMap.entries())
+                .map(([key_words, count]) => ({ key_words, count }))
+                .sort((a, b) => b.count - a.count);
+
+            // Process forbiddenWords
+            const forbiddenWordsMap = new Map<string, number>();
+            sessionEvents.forEach(event => {
+                if (event.forbiddenWords && typeof event.forbiddenWords === 'object') {
+                    Object.entries(event.forbiddenWords as Record<string, number>).forEach(([word, count]) => {
+                        forbiddenWordsMap.set(word, (forbiddenWordsMap.get(word) || 0) + count);
+                    });
+                }
+            });
+
+            // Convert to array and sort by count
+            const forbiddenWordsTable = Array.from(forbiddenWordsMap.entries())
+                .map(([forbidden_word, count]) => ({ forbidden_word, count }))
+                .sort((a, b) => b.count - a.count);
 
             const formatLineChart = (data: any[], keyField: string) => {
                 const transformedData: Record<string, Record<string, number>> = {};
@@ -283,14 +302,17 @@ export class SessionEventController {
                 return transformedData;
             };
 
-            const emotionLineChart = formatLineChart(result[0]?.emotion_line_chart || [], "emotion");
+            // Type assertion for result
+            const typedResult = result as any[];
+
+            const emotionLineChart = formatLineChart(typedResult[0]?.emotion_line_chart || [], "emotion");
             const responseData = {
-                emotion_pie_chart: result[0]?.emotion_pie_chart || [],
+                emotion_pie_chart: typedResult[0]?.emotion_pie_chart || [],
                 emotion_line_chart: emotionLineChart,
-                top_destinations: result[0]?.top_destinations || [],
-                forbidden_words_table: result[0]?.forbidden_words_table || [],
-                key_words_table: result[0]?.key_words_table || [],
-                top_agent_count: result[0]?.top_agent_count || [],
+                top_destinations: typedResult[0]?.top_destinations || [],
+                forbidden_words_table: forbiddenWordsTable,
+                key_words_table: keyWordsTable,
+                top_agent_count: typedResult[0]?.top_agent_count || [],
             };
             const serviceResponse = ServiceResponse.success("Session events retrieved successfully", responseData);
             return handleServiceResponse(serviceResponse, res);
