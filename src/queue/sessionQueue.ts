@@ -100,24 +100,18 @@ export const sessionWorker = new Worker(
                 })
             );
 
-            // Create session event in database with correct field names
+            // Create session event in database with only the fields defined in the Prisma schema
             const sessionEvent = await prisma.sessionEvent.create({
                 data: {
-                    level: 30, // Default level
-                    time: new Date().toISOString(),
-                    pid: process.pid,
-                    hostname: os.hostname(),
-                    name: "session_event",
                     type,
-                    sourceChannel: sourceChannel || source_channel,
-                    sourceNumber: sourceNumber || source_number,
-                    queue,
-                    destChannel: destChannel || dest_channel,
-                    destNumber: destNumber || dest_number,
+                    sourceChannel: sourceChannel || source_channel || "",
+                    sourceNumber: sourceNumber || source_number || "",
+                    queue: queue || "",
+                    destChannel: destChannel || dest_channel || "",
+                    destNumber: destNumber || dest_number || "",
                     date: new Date(date),
                     duration,
-                    filename,
-                    msg: `Call recorded: ${filename}`,
+                    filename
                 }
             });
 
