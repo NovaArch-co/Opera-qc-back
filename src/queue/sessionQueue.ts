@@ -62,11 +62,11 @@ export const sessionWorker = new Worker(
             // Get the data in the format it comes from the external service
             const {
                 type,
-                source_channel,
-                source_number,
+                sourceChannel,
+                sourceNumber,
                 queue,
-                dest_channel,
-                dest_number,
+                destChannel,
+                destNumber,
                 date,
                 duration,
                 filename
@@ -75,10 +75,10 @@ export const sessionWorker = new Worker(
             console.log("Received job data:", job.data);
 
             // Handle cases where fields might be undefined
-            const sourceChannelValue = source_channel || "";
-            const sourceNumberValue = source_number || "";
-            const destChannelValue = dest_channel || "";
-            const destNumberValue = dest_number || "";
+            const sourceChannelValue = sourceChannel || "";
+            const sourceNumberValue = sourceNumber || "";
+            const destChannelValue = destChannel || "";
+            const destNumberValue = destNumber || "";
             const queueValue = queue || "";
 
             // Basic auth credentials for file server
