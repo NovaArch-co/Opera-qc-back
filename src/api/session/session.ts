@@ -194,72 +194,63 @@ export class SessionEventController {
             to = moment().format("jYYYY-jMM-jDD");
         }
 
+        console.log("Jalali Dates:", { from, to });
 
         try {
-            // Use a simpler query approach that doesn't rely on unnest or jsonb_each
-            const result = await prismaClient.$queryRaw`
-            WITH filtered_data AS (
-                SELECT * FROM "SessionEvent"
-                WHERE date BETWEEN ${from}::TIMESTAMP AND ${to}::TIMESTAMP
-            )
-            , emotion_distribution AS (
-                SELECT
-                    emotion,
-                    COUNT(*) AS count
-                FROM filtered_data
-                GROUP BY emotion
-            )
-            , emotion_trend AS (
-                SELECT
-                    emotion,
-                    TO_CHAR(date, 'YYYY-MM-DD') AS call_date,
-                    COUNT(*) AS count
-                FROM filtered_data
-                GROUP BY emotion, call_date
-            )
-            , top_destinations AS (
-                SELECT
-                    dest_number,
-                    COUNT(*) AS count
-                FROM filtered_data
-                WHERE dest_number IS NOT NULL
-                GROUP BY dest_number
-                ORDER BY count DESC
-                LIMIT 10
-            )
-            , top_agent_count AS (
-                SELECT
-                    name,
-                    SUM(
-                        (split_part(duration, ':', 1)::INT * 3600) +  -- Hours to seconds
-                        (split_part(duration, ':', 2)::INT * 60) +    -- Minutes to seconds
-                        (split_part(duration, ':', 3)::INT)           -- Seconds
-                    ) AS total_duration_seconds,
-                    COUNT(*) AS count
-                FROM filtered_data
-                GROUP BY name
-                ORDER BY count DESC
-            )
-            SELECT
-                (SELECT jsonb_agg(e) FROM emotion_distribution e) AS emotion_pie_chart,
-                (SELECT jsonb_agg(et) FROM emotion_trend et) AS emotion_line_chart,
-                (SELECT jsonb_agg(td) FROM top_destinations td) AS top_destinations,
-                (SELECT jsonb_agg(ta) FROM top_agent_count ta) AS top_agent_count;
-            `;
-
-            // For keyWords and forbiddenWords, we'll fetch them separately and process in JavaScript
+            // Instead of using raw SQL with prepared statements, let's use Prisma's query builder
+            // First, get all session events in the date range
             const sessionEvents = await prismaClient.sessionEvent.findMany({
                 where: {
                     date: {
                         gte: new Date(from as string),
                         lte: new Date(to as string)
                     }
-                },
-                select: {
-                    keyWords: true,
-                    forbiddenWords: true
                 }
             });
+
+            // Process emotion distribution
+            const emotionMap = new Map<string, number>();
+            sessionEvents.forEach(event => {
+                if (event.emotion) {
+                    emotionMap.set(event.emotion, (emotionMap.get(event.emotion) || 0) + 1);
+                }
+            });
+            const emotionPieChart = Array.from(emotionMap.entries())
+                .map(([emotion, count]) => ({ emotion, count }));
+
+            // Process emotion trend
+            const emotionTrendMap = new Map<string, Map<string, number>>();
+            sessionEvents.forEach(event => {
+                if (event.emotion && event.date) {
+                    const dateStr = moment(event.date).format('YYYY-MM-DD');
+                    if (!emotionTrendMap.has(dateStr)) {
+                        emotionTrendMap.set(dateStr, new Map<string, number>());
+                    }
+                    const dateMap = emotionTrendMap.get(dateStr)!;
+                    dateMap.set(event.emotion, (dateMap.get(event.emotion) || 0) + 1);
+                }
+            });
+
+            // Convert to the format needed for the line chart
+            const emotionLineChart: Record<string, Record<string, number>> = {};
+            emotionTrendMap.forEach((dateMap, dateStr) => {
+                emotionLineChart[dateStr] = {};
+                dateMap.forEach((count, emotion) => {
+                    emotionLineChart[dateStr][emotion] = count;
+                });
+            });
+
+            // Process top destinations
+            const destMap = new Map<string, number>();
+            sessionEvents.forEach(event => {
+                if (event.destNumber) {
+                    destMap.set(event.destNumber, (destMap.get(event.destNumber) || 0) + 1);
+                }
+            });
+            const topDestinations = Array.from(destMap.entries())
+                .map(([dest_number, count]) => ({ dest_number, count }))
+                .sort((a, b) => b.count - a.count)
+                .slice(0, 10);
 
             // Process keyWords
             const keyWordsMap = new Map<string, number>();
@@ -270,8 +261,6 @@ export class SessionEventController {
                     });
                 }
             });
-
-            // Convert to array and sort by count
             const keyWordsTable = Array.from(keyWordsMap.entries())
                 .map(([key_words, count]) => ({ key_words, count }))
                 .sort((a, b) => b.count - a.count);
@@ -285,35 +274,44 @@ export class SessionEventController {
                     });
                 }
             });
-
-            // Convert to array and sort by count
             const forbiddenWordsTable = Array.from(forbiddenWordsMap.entries())
                 .map(([forbidden_word, count]) => ({ forbidden_word, count }))
                 .sort((a, b) => b.count - a.count);
 
-            const formatLineChart = (data: any[], keyField: string) => {
-                const transformedData: Record<string, Record<string, number>> = {};
-                data.forEach(({ call_date, [keyField]: key, count }) => {
-                    if (!transformedData[call_date]) {
-                        transformedData[call_date] = {};
-                    }
-                    transformedData[call_date][key] = count;
-                });
-                return transformedData;
-            };
+            // Process top agent count
+            const agentMap = new Map<string, { count: number, totalDurationSeconds: number }>();
+            sessionEvents.forEach(event => {
+                if (event.name) {
+                    const durationParts = event.duration.split(':');
+                    const hours = parseInt(durationParts[0], 10);
+                    const minutes = parseInt(durationParts[1], 10);
+                    const seconds = parseInt(durationParts[2], 10);
+                    const totalDurationSeconds = (hours * 3600) + (minutes * 60) + seconds;
 
-            // Type assertion for result
-            const typedResult = result as any[];
+                    const existing = agentMap.get(event.name) || { count: 0, totalDurationSeconds: 0 };
+                    agentMap.set(event.name, {
+                        count: existing.count + 1,
+                        totalDurationSeconds: existing.totalDurationSeconds + totalDurationSeconds
+                    });
+                }
+            });
+            const topAgentCount = Array.from(agentMap.entries())
+                .map(([name, data]) => ({
+                    name,
+                    total_duration_seconds: data.totalDurationSeconds,
+                    count: data.count
+                }))
+                .sort((a, b) => b.count - a.count);
 
-            const emotionLineChart = formatLineChart(typedResult[0]?.emotion_line_chart || [], "emotion");
             const responseData = {
-                emotion_pie_chart: typedResult[0]?.emotion_pie_chart || [],
+                emotion_pie_chart: emotionPieChart,
                 emotion_line_chart: emotionLineChart,
-                top_destinations: typedResult[0]?.top_destinations || [],
+                top_destinations: topDestinations,
                 forbidden_words_table: forbiddenWordsTable,
                 key_words_table: keyWordsTable,
-                top_agent_count: typedResult[0]?.top_agent_count || [],
+                top_agent_count: topAgentCount,
             };
+
             const serviceResponse = ServiceResponse.success("Session events retrieved successfully", responseData);
             return handleServiceResponse(serviceResponse, res);
         } catch (error) {
