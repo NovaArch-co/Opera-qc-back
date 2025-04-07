@@ -1,5 +1,5 @@
 import dotenv from "dotenv";
-import { cleanEnv, host, num, port, str, testOnly } from "envalid";
+import { cleanEnv, host, num, port, str, testOnly, url } from "envalid";
 
 dotenv.config();
 
@@ -20,4 +20,5 @@ export const env = cleanEnv(process.env, {
     REDIS_HOST: str({ devDefault: testOnly("45.156.185.11") }),
     REDIS_PORT: port({ devDefault: testOnly(6379) }),
     BULL_QUEUE: str({ devDefault: testOnly("analyseCalls") }),
+    DATABASE_URL: url({ devDefault: testOnly("postgresql://postgres:postgres@localhost:5432/postgres") }),
 });

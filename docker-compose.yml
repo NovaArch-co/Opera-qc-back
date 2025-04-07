@@ -57,6 +57,7 @@ services:
       - POSTGRES_DB=${POSTGRES_DB}
       - POSTGRES_USER=${POSTGRES_USER}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - FILE_SERVER_BASE_URL=http://192.168.1.115/tmp/two-channel/stream-audio-incoming.php?recfile=
