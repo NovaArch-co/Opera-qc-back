@@ -10,6 +10,7 @@ import { env } from '@/common/utils/envConfig';
 import fs from 'fs';
 import { S3Client, PutObjectCommand, ListBucketsCommand, CreateBucketCommand, HeadBucketCommand } from '@aws-sdk/client-s3';
 import axios from 'axios';
+import os from 'os';
 
 const prisma = new PrismaClient();
 const s3Client = new S3Client({
@@ -98,18 +99,24 @@ export const sessionWorker = new Worker(
                 })
             );
 
-            // Create session event in database
+            // Create session event in database with correct field names
             const sessionEvent = await prisma.sessionEvent.create({
                 data: {
+                    level: 30, // Default level
+                    time: new Date().toISOString(),
+                    pid: process.pid,
+                    hostname: os.hostname(),
+                    name: "session_event",
                     type,
-                    sourceChannel,
-                    sourceNumber,
+                    source_channel: sourceChannel,
+                    source_number: sourceNumber,
                     queue,
-                    destChannel,
-                    destNumber,
-                    date,
+                    dest_channel: destChannel,
+                    dest_number: destNumber,
+                    date: new Date(date),
                     duration,
-                    filename
+                    filename,
+                    msg: `Call recorded: ${filename}`,
                 }
             });
 
