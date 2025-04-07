@@ -1,7 +1,6 @@
 import type { Request, RequestHandler, Response } from "express";
 import { ServiceResponse } from "@/common/models/serviceResponse";
 import { handleServiceResponse } from "@/common/utils/httpHandlers";
-import { PrismaClient } from "@prisma/client";
 import { StatusCodes } from "http-status-codes";
 import moment from 'moment-jalaali';
 import { createApiResponse } from "@/common/utils/createApiResponse";
@@ -21,8 +20,6 @@ const sessionQueue = new Queue(env.BULL_QUEUE, {
         port: parseInt(env.REDIS_PORT, 10),
     }
 });
-
-const prismaClient = new PrismaClient();
 
 const s3Client = new S3Client({
     region: "us-east-1",
@@ -103,7 +100,7 @@ export class SessionEventController {
         const { id } = req.params;
 
         try {
-            let sessionEvent = await prismaClient.sessionEvent.findUnique({
+            let sessionEvent = await prisma.sessionEvent.findUnique({
                 where: { id: Number(id) },
             });
 
@@ -146,10 +143,10 @@ export class SessionEventController {
             console.log("Received Jalali Dates:", { from, to });
 
             // Clear the query plan cache to avoid the "cached plan must not change result type" error
-            await prismaClient.$executeRaw`DISCARD ALL;`;
+            await prisma.$executeRaw`DISCARD ALL;`;
 
             // 🛠 Prisma Raw Query to fetch sessions
-            const sessionEvents = await prismaClient.$queryRaw`
+            const sessionEvents = await prisma.$queryRaw`
             SELECT * FROM "SessionEvent"
             WHERE date BETWEEN ${from}::TIMESTAMP AND ${to}::TIMESTAMP
             ORDER BY date DESC
@@ -199,7 +196,7 @@ export class SessionEventController {
         try {
             // Instead of using raw SQL with prepared statements, let's use Prisma's query builder
             // First, get all session events in the date range
-            const sessionEvents = await prismaClient.sessionEvent.findMany({
+            const sessionEvents = await prisma.sessionEvent.findMany({
                 where: {
                     date: {
                         gte: new Date(from as string),
