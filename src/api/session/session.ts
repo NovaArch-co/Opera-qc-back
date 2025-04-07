@@ -195,14 +195,10 @@ export class SessionEventController {
 
             console.log("Jalali Dates:", { from, to });
 
-            // Convert Jalali to Gregorian for logging
-            try {
-                const fromGregorian = moment(from, "jYYYY-jMM-jDD").format("YYYY-MM-DD");
-                const toGregorian = moment(to, "jYYYY-jMM-jDD").format("YYYY-MM-DD");
-                console.log("Gregorian Dates:", { fromGregorian, toGregorian });
-            } catch (dateError) {
-                console.error("Error converting Jalali to Gregorian:", dateError);
-            }
+            // Convert Jalali to Gregorian for database queries
+            const fromGregorian = moment(from, "jYYYY-jMM-jDD").format("YYYY-MM-DD");
+            const toGregorian = moment(to, "jYYYY-jMM-jDD").format("YYYY-MM-DD");
+            console.log("Gregorian Dates for query:", { fromGregorian, toGregorian });
 
             // Check if there are any records in the database at all
             try {
@@ -235,7 +231,7 @@ export class SessionEventController {
                 const countResult = await prismaClient.$queryRaw`
                     SELECT COUNT(*) as count 
                     FROM "SessionEvent" 
-                    WHERE date BETWEEN ${from}::TIMESTAMP AND ${to}::TIMESTAMP
+                    WHERE date BETWEEN ${fromGregorian}::TIMESTAMP AND ${toGregorian}::TIMESTAMP
                 `;
                 console.log("Total records in date range:", countResult[0].count);
             } catch (countError) {
@@ -249,7 +245,7 @@ export class SessionEventController {
                     SELECT COUNT(*) as count 
                     FROM "SessionEvent" 
                     WHERE emotion IS NOT NULL 
-                    AND date BETWEEN ${from}::TIMESTAMP AND ${to}::TIMESTAMP
+                    AND date BETWEEN ${fromGregorian}::TIMESTAMP AND ${toGregorian}::TIMESTAMP
                 `;
                 console.log("Records with emotions:", emotionCount[0].count);
             } catch (emotionError) {
@@ -260,7 +256,7 @@ export class SessionEventController {
             const result = await prismaClient.$queryRaw`
             WITH filtered_data AS (
                 SELECT * FROM "SessionEvent"
-                               WHERE date BETWEEN ${from}::TIMESTAMP AND ${to}::TIMESTAMP
+                               WHERE date BETWEEN ${fromGregorian}::TIMESTAMP AND ${toGregorian}::TIMESTAMP
             )
             , emotion_distribution AS (
                 SELECT
