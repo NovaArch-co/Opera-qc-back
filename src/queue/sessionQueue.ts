@@ -50,7 +50,7 @@ async function ensureBucketExists(bucketName: string) {
 export const sessionQueue = new Queue('session-processing', {
     connection: {
         host: env.REDIS_HOST || 'localhost',
-        port: parseInt(env.REDIS_PORT || '6379', 10),
+        port: String(parseInt(env.REDIS_PORT || '6379', 10)),
     }
 });
 
@@ -73,6 +73,13 @@ export const sessionWorker = new Worker(
             } = job.data;
 
             console.log("Received job data:", job.data);
+
+            // Handle cases where fields might be undefined
+            const sourceChannelValue = source_channel || "";
+            const sourceNumberValue = source_number || "";
+            const destChannelValue = dest_channel || "";
+            const destNumberValue = dest_number || "";
+            const queueValue = queue || "";
 
             // Basic auth credentials for file server
             const auth = {
@@ -126,11 +133,11 @@ export const sessionWorker = new Worker(
                     name: "SESSION_EVENT",
                     msg: `Call recorded: ${filename}`,
                     type,
-                    sourceChannel: source_channel,
-                    sourceNumber: source_number,
-                    queue,
-                    destChannel: dest_channel,
-                    destNumber: dest_number,
+                    sourceChannel: sourceChannelValue,
+                    sourceNumber: sourceNumberValue,
+                    queue: queueValue,
+                    destChannel: destChannelValue,
+                    destNumber: destNumberValue,
                     date: new Date(date),
                     duration,
                     filename
@@ -219,7 +226,7 @@ export const sessionWorker = new Worker(
     {
         connection: {
             host: env.REDIS_HOST,
-            port: parseInt(env.REDIS_PORT, 10),
+            port: String(parseInt(env.REDIS_PORT, 10)),
         },
         concurrency: 5,
         removeOnComplete: { count: 1000 },
