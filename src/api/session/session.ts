@@ -7,6 +7,7 @@ import { createApiResponse } from "@/common/utils/createApiResponse";
 import { Queue } from "bullmq";
 import { env } from "@/common/utils/envConfig";
 import prisma from "@/common/utils/prisma";
+import { reconnectToDatabase } from "@/common/utils/dbHealthCheck";
 import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import path from "node:path";
 import fs from "node:fs";
@@ -142,39 +143,92 @@ export class SessionEventController {
 
             console.log("Received Jalali Dates:", { from, to });
 
-            // Clear the query plan cache to avoid the "cached plan must not change result type" error
-            await prisma.$executeRaw`DISCARD ALL;`;
+            try {
+                // Clear the query plan cache to avoid the "cached plan must not change result type" error
+                await prisma.$executeRaw`DISCARD ALL;`;
 
-            // 🛠 Prisma Raw Query to fetch sessions
-            const sessionEvents = await prisma.$queryRaw`
-            SELECT * FROM "SessionEvent"
-            WHERE date BETWEEN ${from}::TIMESTAMP AND ${to}::TIMESTAMP
-            ORDER BY date DESC
-        `;
+                // Instead of using raw SQL with prepared statements, let's use Prisma's query builder
+                // First, get all session events in the date range
+                const sessionEvents = await prisma.sessionEvent.findMany({
+                    where: {
+                        date: {
+                            gte: new Date(from as string),
+                            lte: new Date(to as string)
+                        }
+                    },
+                    orderBy: {
+                        date: 'desc'
+                    }
+                });
 
-            console.log("Fetched Sessions:", (sessionEvents as any[]).length);
+                console.log("Fetched Sessions:", sessionEvents.length);
 
-            // 🛠 Format URLs properly
-            const formattedSessions = (sessionEvents as any[]).map((event: any) => ({
-                ...event,
-                incommingfileUrl: event.incommingfileUrl ? `${env.MINIO_ENDPOINT_UTL}${event.incommingfileUrl}` : null,
-                outgoingfileUrl: event.outgoingfileUrl ? `${env.MINIO_ENDPOINT_UTL}${event.outgoingfileUrl}` : null,
-                forbiddenWords: event.forbiddenWords || {},
-                topic: event.topic && typeof event.topic === 'object' && Object.keys(event.topic).length > 0 ? Object.keys(event.topic)[0] : "",
-                subTopic: event.topic && typeof event.topic === 'object' && Object.values(event.topic).length > 0 ? Object.values(event.topic)[0] : ""
-            }));
+                // 🛠 Format URLs properly
+                const formattedSessions = sessionEvents.map((event) => ({
+                    ...event,
+                    incommingfileUrl: event.incommingfileUrl ? `${env.MINIO_ENDPOINT_UTL}${event.incommingfileUrl}` : null,
+                    outgoingfileUrl: event.outgoingfileUrl ? `${env.MINIO_ENDPOINT_UTL}${event.outgoingfileUrl}` : null,
+                    forbiddenWords: event.forbiddenWords || {},
+                    topic: event.topic && typeof event.topic === 'object' && Object.keys(event.topic).length > 0 ? Object.keys(event.topic)[0] : "",
+                    subTopic: event.topic && typeof event.topic === 'object' && Object.values(event.topic).length > 0 ? Object.values(event.topic)[0] : ""
+                }));
 
-            return handleServiceResponse(
-                ServiceResponse.success("Session events retrieved successfully", formattedSessions),
-                res
-            );
+                return res.status(StatusCodes.OK).json(formattedSessions);
+            } catch (error) {
+                console.error("Database query error:", error);
 
+                // Check if it's a connection error
+                if (error instanceof Error &&
+                    (error.message.includes("prepared statement") ||
+                        error.message.includes("connection") ||
+                        error.message.includes("timeout"))) {
+
+                    // Try to reconnect to the database
+                    const reconnected = await reconnectToDatabase();
+                    if (reconnected) {
+                        // Try the query again after reconnecting
+                        try {
+                            const sessionEvents = await prisma.sessionEvent.findMany({
+                                where: {
+                                    date: {
+                                        gte: new Date(from as string),
+                                        lte: new Date(to as string)
+                                    }
+                                },
+                                orderBy: {
+                                    date: 'desc'
+                                }
+                            });
+
+                            console.log("Fetched Sessions after reconnection:", sessionEvents.length);
+
+                            const formattedSessions = sessionEvents.map((event) => ({
+                                ...event,
+                                incommingfileUrl: event.incommingfileUrl ? `${env.MINIO_ENDPOINT_UTL}${event.incommingfileUrl}` : null,
+                                outgoingfileUrl: event.outgoingfileUrl ? `${env.MINIO_ENDPOINT_UTL}${event.outgoingfileUrl}` : null,
+                                forbiddenWords: event.forbiddenWords || {},
+                                topic: event.topic && typeof event.topic === 'object' && Object.keys(event.topic).length > 0 ? Object.keys(event.topic)[0] : "",
+                                subTopic: event.topic && typeof event.topic === 'object' && Object.values(event.topic).length > 0 ? Object.values(event.topic)[0] : ""
+                            }));
+
+                            return res.status(StatusCodes.OK).json(formattedSessions);
+                        } catch (retryError) {
+                            console.error("Database retry error:", retryError);
+                        }
+                    }
+                }
+
+                return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+                    message: "Failed to fetch sessions",
+                    error: error instanceof Error ? error.message : "Unknown error"
+                });
+            }
         } catch (error) {
-            console.error("Error fetching session events:", error);
-            return handleServiceResponse(
-                ServiceResponse.failure("Error fetching session events", error, StatusCodes.INTERNAL_SERVER_ERROR),
-                res
-            );
+            console.error("Error in getSessions:", error);
+            return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+                message: "An unexpected error occurred",
+                error: error instanceof Error ? error.message : "Unknown error"
+            });
         }
     };
 

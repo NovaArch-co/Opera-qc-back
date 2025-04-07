@@ -3,6 +3,7 @@ import { ExtractJwt, Strategy as JwtStrategy, type StrategyOptionsWithoutRequest
 import dotenv from "dotenv";
 import { env } from "@/common/utils/envConfig";
 import prisma from "@/common/utils/prisma";
+import { reconnectToDatabase } from "@/common/utils/dbHealthCheck";
 
 dotenv.config();
 
@@ -34,9 +35,36 @@ export const generateToken = (payload: any) => {
 };
 
 export const passportConfig = new JwtStrategy(jwtOpts, async (payload, done) => {
-  const user = await prisma.user.findUnique({ where: { email: payload.email } });
-  if (user) {
-    return done(null, user);
+  try {
+    const user = await prisma.user.findUnique({ where: { email: payload.email } });
+    if (user) {
+      return done(null, user);
+    }
+    return done(null, false);
+  } catch (error) {
+    console.error("Authentication error:", error);
+
+    // Check if it's a connection error
+    if (error instanceof Error &&
+      (error.message.includes("prepared statement") ||
+        error.message.includes("connection") ||
+        error.message.includes("timeout"))) {
+
+      // Try to reconnect to the database
+      const reconnected = await reconnectToDatabase();
+      if (reconnected) {
+        // Try the query again after reconnecting
+        try {
+          const user = await prisma.user.findUnique({ where: { email: payload.email } });
+          if (user) {
+            return done(null, user);
+          }
+        } catch (retryError) {
+          console.error("Authentication retry error:", retryError);
+        }
+      }
+    }
+
+    return done(error, false);
   }
-  return done(null, false);
 });

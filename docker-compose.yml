@@ -39,6 +39,11 @@ services:
     volumes:
       - postgres_data:/bitnami/postgresql
     user: root
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
     networks:
       - app-network
 
@@ -70,10 +75,13 @@ services:
       - JWT_EXPIRES_IN=${JWT_EXPIRES_IN:-1d}
       - CORS_ORIGIN=${CORS_ORIGIN:-http://localhost:3000}
     depends_on:
-      - postgres
-      - minio
-      - redis
-    command: sh -c "npx prisma migrate deploy && npm start"
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_started
+      redis:
+        condition: service_started
+    command: sh -c "npx prisma generate && npx prisma migrate deploy && npm start"
     networks:
       - app-network
 

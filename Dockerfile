@@ -17,9 +17,11 @@ RUN --mount=type=cache,target=/root/.npm npm ci
 # Bundle app source
 COPY . .
 
+# Generate Prisma client
+RUN npx prisma generate
+
 # Build the TypeScript files
 RUN npm run build
-RUN npx prisma generate
 
 # Expose port 8080
 EXPOSE 8081
