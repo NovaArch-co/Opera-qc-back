@@ -147,8 +147,12 @@ export class SessionEventController {
                 incommingfileUrl: event.incommingfileUrl ? `${env.MINIO_ENDPOINT_UTL}${event.incommingfileUrl}` : null,
                 outgoingfileUrl: event.outgoingfileUrl ? `${env.MINIO_ENDPOINT_UTL}${event.outgoingfileUrl}` : null,
                 forbiddenWords: event.forbiddenWords || {},
-                topic: event.topic && Object.keys(event.topic).length > 0 ? Object.keys(event.topic)[0] : "",
-                subTopic: (Object.values(event.topic).length > 0) ? Object.values(event.topic)[0] : ""
+                topic: event.topic && typeof event.topic === 'object' && Object.keys(event.topic).length > 0
+                    ? Object.keys(event.topic)[0]
+                    : "",
+                subTopic: event.topic && typeof event.topic === 'object' && Object.values(event.topic).length > 0
+                    ? Object.values(event.topic)[0]
+                    : ""
             }));
 
             return handleServiceResponse(
