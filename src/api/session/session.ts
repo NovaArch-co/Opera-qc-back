@@ -208,21 +208,6 @@ export class SessionEventController {
                 SELECT * FROM "SessionEvent"
                                WHERE date BETWEEN ${from}::TIMESTAMP AND ${to}::TIMESTAMP
             )
-            , topic_distribution AS (
-                SELECT
-                    jsonb_object_keys(topic) AS topic_name,
-                    COUNT(*) AS count
-                FROM filtered_data
-                GROUP BY topic_name
-            )
-            , topic_trend AS (
-                SELECT
-                    jsonb_object_keys(topic) AS topic_name,
-                    TO_CHAR(date, 'YYYY-MM-DD') AS call_date,
-                    COUNT(*) AS count
-                FROM filtered_data
-                GROUP BY topic_name, call_date
-            )
             , emotion_distribution AS (
                 SELECT
                     emotion,
@@ -278,8 +263,6 @@ export class SessionEventController {
                 ORDER BY count DESC
 )
             SELECT
-                (SELECT jsonb_agg(t) FROM topic_distribution t) AS topic_pie_chart,
-                (SELECT jsonb_agg(tt) FROM topic_trend tt) AS topic_line_chart,
                 (SELECT jsonb_agg(e) FROM emotion_distribution e) AS emotion_pie_chart,
                 (SELECT jsonb_agg(et) FROM emotion_trend et) AS emotion_line_chart,
                 (SELECT jsonb_agg(td) FROM top_destinations td) AS top_destinations,
@@ -299,11 +282,8 @@ export class SessionEventController {
                 return transformedData;
             };
 
-            const topicLineChart = formatLineChart(result[0]?.topic_line_chart || [], "topic_name");
             const emotionLineChart = formatLineChart(result[0]?.emotion_line_chart || [], "emotion");
             const responseData = {
-                topic_pie_chart: result[0]?.topic_pie_chart || [],
-                topic_line_chart: topicLineChart,
                 emotion_pie_chart: result[0]?.emotion_pie_chart || [],
                 emotion_line_chart: emotionLineChart,
                 top_destinations: result[0]?.top_destinations || [],
