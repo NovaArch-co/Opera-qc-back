@@ -1,6 +1,14 @@
 version: '3.8'
 
 services:
+  operaai:
+    image: operaasr2:v1.1T
+    container_name: operaai
+    ports:
+      - "8000:8000"
+    networks:
+      - app-network
+      
   redis:
     image: docker.arvancloud.ir/redis:latest
     container_name: opera-qc-redis
