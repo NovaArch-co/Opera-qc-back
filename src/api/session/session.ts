@@ -467,7 +467,7 @@ export const sendFilesToTranscriptionAPI = async (filePathIn: string, filePathOu
         form.append("customer", fs.createReadStream(filePathIn));
         form.append("agent", fs.createReadStream(filePathOut));
 
-        const response = await axios.post("http://operaai:8000/transcribe/", form, {
+        const response = await axios.post("http://localhost:8000/transcribe/", form, {
             headers: {
                 ...form.getHeaders(),
             },
@@ -487,7 +487,7 @@ export const sendToAnalysisAPI = async (transcriptionData: any) => {
             return null;
         }
 
-        const response = await axios.post("http://operaai:8000/analyze/", transcriptionData, {
+        const response = await axios.post("http://localhost:8000/analyze/", transcriptionData, {
             headers: {
                 "Content-Type": "application/json",
                 "Accept": "application/json",
