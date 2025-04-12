@@ -1,14 +1,6 @@
 version: '3.8'
 
 services:
-  operaai:
-    image: operaasr2:v1.1T
-    container_name: operaai
-    ports:
-      - "8000:8000"
-    networks:
-      - app-network
-      
   redis:
     image: docker.arvancloud.ir/redis:latest
     container_name: opera-qc-redis
@@ -90,6 +82,18 @@ services:
       redis:
         condition: service_started
     command: sh -c "npx prisma generate && npx prisma migrate deploy && npm start"
+    networks:
+      - app-network
+
+  operaai:
+    image: operaasr2:v1.1T
+    container_name: operaai
+    runtime: nvidia
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+    ports:
+      - "8000:8000"
+    command: uvicorn main:app --host 0.0.0.0 --port 8000
     networks:
       - app-network
 
