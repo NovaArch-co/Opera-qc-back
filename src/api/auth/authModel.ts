@@ -20,3 +20,8 @@ export const TokenSchema = z.object({
   accessToken: z.string(),
   refreshToken: z.string(),
 });
+
+export const VerifySchema = z.object({
+  email: z.string().email(),
+  verificationCode: z.string(),
+});

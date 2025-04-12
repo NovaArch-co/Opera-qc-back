@@ -25,6 +25,14 @@ export class ServiceResponse<T = null> {
   static unAuthorized<T>(message: string) {
     return new ServiceResponse(false, message, null, StatusCodes.UNAUTHORIZED);
   }
+
+  static badRequest<T>(message: string) {
+    return new ServiceResponse(false, message, null, StatusCodes.BAD_REQUEST);
+  }
+
+  static notFound<T>(message: string) {
+    return new ServiceResponse(false, message, null, StatusCodes.NOT_FOUND);
+  }
 }
 
 export const ServiceResponseSchema = <T extends z.ZodTypeAny>(dataSchema: T) =>
