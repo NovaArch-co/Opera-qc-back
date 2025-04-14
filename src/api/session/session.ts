@@ -14,6 +14,7 @@ import fs from "node:fs";
 import { downloadAndSaveAudio } from "@/common/utils/downloadFileStream";
 import FormData from "form-data";
 import axios from "axios"; // ✅ Make sure you are using `form-data` package
+import { addSequentialJob } from "@/queue/sequentialQueue";
 
 const sessionQueue = new Queue(env.BULL_QUEUE, {
     connection: {
@@ -66,8 +67,8 @@ export class SessionEventController {
             // Convert date to ISO format
             const isoDate = moment(date, 'YYYY-MM-DD HH:mm:ss').toDate();
 
-            // Add job to queue
-            const job = await sessionQueue.add('process-session', {
+            // Add job to sequential queue instead of the regular queue
+            const job = await addSequentialJob('process-session', {
                 type,
                 sourceChannel: source_channel,
                 sourceNumber: source_number,
@@ -81,7 +82,7 @@ export class SessionEventController {
 
             return res.status(StatusCodes.OK).json({
                 success: true,
-                message: "Session event processing started",
+                message: "Session event processing started (sequential processing)",
                 data: {
                     jobId: job.id,
                     status: "waiting"
@@ -359,12 +360,21 @@ export class SessionEventController {
                 });
             }
 
-            const job = await sessionQueue.getJob(jobId);
+            // First try to get job from the original queue
+            let job = await sessionQueue.getJob(jobId);
+            let queueType = "standard";
+
+            // If not found, try the sequential queue
+            if (!job) {
+                const { sequentialQueue } = await import('@/queue/sequentialQueue');
+                job = await sequentialQueue.getJob(jobId);
+                queueType = "sequential";
+            }
 
             if (!job) {
                 return res.status(StatusCodes.NOT_FOUND).json({
                     success: false,
-                    message: "Job not found",
+                    message: "Job not found in any queue",
                     data: null,
                     statusCode: StatusCodes.NOT_FOUND
                 });
@@ -380,6 +390,7 @@ export class SessionEventController {
                 message: "Job status retrieved successfully",
                 data: {
                     jobId: job.id,
+                    queueType,
                     state,
                     progress,
                     result,

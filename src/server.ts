@@ -16,6 +16,8 @@ import { passportConfig } from "./auth";
 import { sessionEventRouter } from "@/api/session/sessionRouter";
 import expressBasicAuth from "express-basic-auth";
 import { sessionWorker } from '@/queue/sessionQueue';
+import { sequentialWorker } from '@/queue/sequentialQueue';
+import { sequentialRouter } from "@/api/sequential/sequentialRouter";
 
 const logger = pino({ name: "server start" });
 const app: Express = express();
@@ -57,6 +59,7 @@ app.use("/api/auth", authRouter);
 app.use("/api/users", passport.authenticate("jwt", { session: false }), userRouter);
 // app.use("/api/sessions", passport.authenticate("jwt", { session: false }), sessionEventRouter);
 app.use("/api/event", sessionEventRouter);
+app.use("/api/sequential", sequentialRouter);
 // Swagger UI
 app.use("/api/docs", openAPIRouter);
 app.use(helmet());
@@ -72,5 +75,8 @@ sessionWorker.on('completed', (job) => {
 sessionWorker.on('failed', (job, err) => {
     console.error(`Job ${job?.id} failed with error:`, err);
 });
+
+// No need to set up event handlers for sequential worker here
+// as they are already defined in the sequentialQueue.ts file
 
 export { app, logger };
