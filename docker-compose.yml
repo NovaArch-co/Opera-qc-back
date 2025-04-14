@@ -86,30 +86,18 @@ services:
     networks:
       - app-network
 
-  operaai:
-    image: operaasr2:v1.1T
-    container_name: operaai
-    runtime: nvidia
-    environment:
-      - NVIDIA_VISIBLE_DEVICES=all
-    ports:
-      - "8000:8000"
-    command: uvicorn main:app --host 0.0.0.0 --port 8000
-    networks:
-      - app-network
+  # operaai:
+  #   image: operaasr2:v1.1T
+  #   container_name: operaai
+  #   runtime: nvidia
+  #   environment:
+  #     - NVIDIA_VISIBLE_DEVICES=all
+  #   ports:
+  #     - "8000:8000"
+  #   command: uvicorn main:app --host 0.0.0.0 --port 8000
+  #   networks:
+  #     - app-network
 
-  pgadmin:
-    image: docker.arvancloud.ir/dpage/pgadmin4
-    container_name: pgadmin
-    environment:
-      PGADMIN_DEFAULT_EMAIL: admin@admin.com
-      PGADMIN_DEFAULT_PASSWORD: admin
-    ports:
-      - "5050:80"
-    depends_on:
-      - postgres
-    networks:
-      - app-network
 
 networks:
   app-network:
