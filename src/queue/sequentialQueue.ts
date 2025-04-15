@@ -2,7 +2,7 @@ import { Queue, Worker } from 'bullmq';
 import { env } from '@/common/utils/envConfig';
 import axios from 'axios';
 import { PrismaClient } from '@prisma/client';
-import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
+import { S3Client, PutObjectCommand, HeadBucketCommand, CreateBucketCommand } from '@aws-sdk/client-s3';
 import path from 'node:path';
 import fs from 'fs';
 import os from 'os';
@@ -23,6 +23,35 @@ const s3Client = new S3Client({
 });
 
 const BUCKET_NAME = "audio-files";
+
+// Initialize bucket if it doesn't exist
+async function ensureBucketExists() {
+    try {
+        // Check if bucket exists
+        await s3Client.send(new HeadBucketCommand({ Bucket: BUCKET_NAME }));
+        console.log(`Bucket ${BUCKET_NAME} already exists`);
+    } catch (error: any) {
+        // If bucket doesn't exist (404) or we can't access it
+        if (error.name === 'NotFound' || error.$metadata?.httpStatusCode === 404) {
+            try {
+                // Create the bucket
+                await s3Client.send(new CreateBucketCommand({ Bucket: BUCKET_NAME }));
+                console.log(`Bucket ${BUCKET_NAME} created successfully`);
+            } catch (createError) {
+                console.error(`Error creating bucket ${BUCKET_NAME}:`, createError);
+                throw createError;
+            }
+        } else {
+            console.error(`Error checking bucket ${BUCKET_NAME}:`, error);
+            throw error;
+        }
+    }
+}
+
+// Ensure bucket exists on startup
+ensureBucketExists().catch(error => {
+    console.error("Failed to initialize MinIO bucket:", error);
+});
 
 // Create a new queue for sequential processing
 export const sequentialQueue = new Queue('sequential-processing', {
@@ -165,6 +194,9 @@ async function processSessionJob(jobData: any) {
         // Upload files to MinIO
         const customerKey = `${baseFileName}-in.wav`;
         const agentKey = `${baseFileName}-out.wav`;
+
+        // Ensure bucket exists before uploading
+        await ensureBucketExists();
 
         // Upload customer file to MinIO
         await s3Client.send(
