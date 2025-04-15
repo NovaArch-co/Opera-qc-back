@@ -44,13 +44,10 @@ model SessionEvent {
   forbiddenWords    Json?    // can be an object or array
 
   // Optional metadata/logging fields
-  time              DateTime?
-  pid               Int?
-  hostname          String?
-  name              String?
-  msg               String?
-
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  time              String   // Required based on migration
+  pid               Int      // Required based on migration
+  hostname          String   // Required based on migration
+  name              String   // Required based on migration
+  msg               String   // Required based on migration
 }
 
