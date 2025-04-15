@@ -44,7 +44,18 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 // Configure CORS to allow all origins
 app.use(cors({
-    origin: '*',
+    origin: function (origin, callback) {
+        // Allow requests with no origin (like mobile apps, curl requests)
+        if (!origin) return callback(null, true);
+
+        const allowedOrigins = env.CORS_ORIGIN.split(',');
+        if (allowedOrigins.indexOf(origin) !== -1 || allowedOrigins.includes('*')) {
+            return callback(null, true);
+        } else {
+            return callback(null, true); // Allow all origins during development
+            // For production: return callback(new Error('Not allowed by CORS'), false);
+        }
+    },
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
     credentials: true
