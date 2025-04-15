@@ -318,6 +318,16 @@ export class SessionEventController {
                 GROUP BY key
                 ORDER BY count DESC
             )
+            , topic_trend AS (
+                SELECT
+                    key AS topic,
+                    TO_CHAR(date, 'YYYY-MM-DD') AS call_date,
+                    COUNT(*) AS count
+                FROM filtered_data,
+                LATERAL jsonb_object_keys(topic) AS key
+                WHERE topic IS NOT NULL
+                GROUP BY key, call_date
+            )
             SELECT
                 (SELECT jsonb_agg(e) FROM emotion_distribution e) AS emotion_pie_chart,
                 (SELECT jsonb_agg(et) FROM emotion_trend et) AS emotion_line_chart,
@@ -325,7 +335,8 @@ export class SessionEventController {
                 (SELECT jsonb_agg(fw) FROM forbidden_words_count fw) AS forbidden_words_table,
                 (SELECT jsonb_agg(kw) FROM key_words_count kw) AS key_words_table,
                 (SELECT jsonb_agg(ta) FROM top_agent_count ta) AS top_agent_count,
-                (SELECT jsonb_agg(tp) FROM topic_distribution tp) AS topic_pie_chart;
+                (SELECT jsonb_agg(tp) FROM topic_distribution tp) AS topic_pie_chart,
+                (SELECT jsonb_agg(tt) FROM topic_trend tt) AS topic_line_chart;
         `;
 
             console.log("Query result:", JSON.stringify(result[0], null, 2));
@@ -342,9 +353,11 @@ export class SessionEventController {
             };
 
             const emotionLineChart = formatLineChart(result[0]?.emotion_line_chart || [], "emotion");
+            const topicLineChart = formatLineChart(result[0]?.topic_line_chart || [], "topic");
             const responseData = {
                 emotion_pie_chart: result[0]?.emotion_pie_chart || [],
                 emotion_line_chart: emotionLineChart,
+                topic_line_chart: topicLineChart,
                 top_destinations: result[0]?.top_destinations || [],
                 forbidden_words_table: result[0]?.forbidden_words_table || [],
                 key_words_table: result[0]?.key_words_table || [],
