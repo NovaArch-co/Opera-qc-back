@@ -4,7 +4,6 @@ import { handleServiceResponse } from "@/common/utils/httpHandlers";
 import { PrismaClient } from "@prisma/client";
 import { StatusCodes } from "http-status-codes";
 import moment from 'moment-jalaali';
-import { createApiResponse } from "@/common/utils/createApiResponse";
 import { Queue } from "bullmq";
 import { env } from "@/common/utils/envConfig";
 import prisma from "@/common/utils/prisma";
@@ -19,7 +18,7 @@ import { addSequentialJob } from "@/queue/sequentialQueue";
 const sessionQueue = new Queue(env.BULL_QUEUE, {
     connection: {
         host: env.REDIS_HOST,
-        port: parseInt(env.REDIS_PORT, 10),
+        port: env.REDIS_PORT,
     }
 });
 
@@ -119,8 +118,8 @@ export class SessionEventController {
                 incommingfileUrl,
                 outgoingfileUrl,
                 forbiddenWords: sessionEvent.forbiddenWords ? sessionEvent.forbiddenWords : {},
-                topic: (Object.keys(sessionEvent.topic).length > 0) ? Object.keys(sessionEvent.topic)[0] : "",
-                subTopic: (Object.values(sessionEvent.topic).length > 0) ? Object.values(sessionEvent.topic)[0] : ""
+                topic: (sessionEvent.topic && typeof sessionEvent.topic === 'object' && Object.keys(sessionEvent.topic).length > 0) ? Object.keys(sessionEvent.topic)[0] : "",
+                subTopic: (sessionEvent.topic && typeof sessionEvent.topic === 'object' && Object.values(sessionEvent.topic).length > 0) ? Object.values(sessionEvent.topic)[0] : ""
             }
             const serviceResponse = ServiceResponse.success("Session event retrieved successfully", sessionEvents);
             return handleServiceResponse(serviceResponse, res);
@@ -142,7 +141,7 @@ export class SessionEventController {
             console.log("Pagination params:", { page, limit, offset });
 
             // Get total count for pagination metadata
-            const totalCountResult = await prismaClient.$queryRaw`
+            const totalCountResult = await prismaClient.$queryRaw<{ total: number }[]>`
                 SELECT COUNT(*) as total FROM "SessionEvent"
             `;
             const totalCount = Number(totalCountResult[0].total || 0);
@@ -209,14 +208,14 @@ export class SessionEventController {
             // Check if there are any records in the database at all
             try {
                 console.log("Checking if there are any records in the database...");
-                const totalRecords = await prismaClient.$queryRaw`
+                const totalRecords = await prismaClient.$queryRaw<{ count: number }[]>`
                     SELECT COUNT(*) as count FROM "SessionEvent"
                 `;
                 console.log("Total records in database:", totalRecords[0].count);
 
                 if (totalRecords[0].count > 0) {
                     // Get the date range of all records
-                    const dateRange = await prismaClient.$queryRaw`
+                    const dateRange = await prismaClient.$queryRaw<{ min_date: Date, max_date: Date }[]>`
                         SELECT 
                             MIN(date) as min_date, 
                             MAX(date) as max_date 
@@ -234,7 +233,7 @@ export class SessionEventController {
             // Check if we have any records with emotions
             try {
                 console.log("Executing emotion count query...");
-                const emotionCount = await prismaClient.$queryRaw`
+                const emotionCount = await prismaClient.$queryRaw<{ count: number }[]>`
                     SELECT COUNT(*) as count 
                     FROM "SessionEvent" 
                     WHERE emotion IS NOT NULL
@@ -245,7 +244,7 @@ export class SessionEventController {
             }
 
             console.log("Executing main dashboard query...");
-            const result = await prismaClient.$queryRaw`
+            const result = await prismaClient.$queryRaw<any[]>`
             WITH filtered_data AS (
                 SELECT * FROM "SessionEvent"
             )
