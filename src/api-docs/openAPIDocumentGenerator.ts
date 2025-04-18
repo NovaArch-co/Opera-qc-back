@@ -1,15 +1,17 @@
-import {OpenApiGeneratorV3, OpenAPIRegistry} from "@asteasolutions/zod-to-openapi";
+import { OpenApiGeneratorV3, OpenAPIRegistry } from "@asteasolutions/zod-to-openapi";
 
-import {authRegistry} from "@/api/auth/authRouter";
-import {userRegistry} from "@/api/user/userRouter";
-import {sessionEventRegistry} from "@/api/session/sessionRouter";
-import {env} from "@/common/utils/envConfig";
+import { authRegistry } from "@/api/auth/authRouter";
+import { userRegistry } from "@/api/user/userRouter";
+import { sessionEventRegistry } from "@/api/session/sessionRouter";
+import { env } from "@/common/utils/envConfig";
+import { callsRegistry } from "@/api/calls/callsRouter";
 
 export function generateOpenAPIDocument() {
     const registry = new OpenAPIRegistry([
         userRegistry,
         authRegistry,
-        sessionEventRegistry
+        sessionEventRegistry,
+        callsRegistry
     ]);
     const generator = new OpenApiGeneratorV3(registry.definitions);
 
