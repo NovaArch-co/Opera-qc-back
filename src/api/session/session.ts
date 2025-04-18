@@ -141,8 +141,9 @@ export class SessionEventController {
             // Extract filters from query
             const emotion = req.query.emotion as string | undefined;
             const category = req.query.category as string | undefined;
+            const topic = req.query.topic as string | undefined;
 
-            console.log("Pagination and filter params:", { page, limit, offset, emotion, category });
+            console.log("Pagination and filter params:", { page, limit, offset, emotion, category, topic });
 
             // Build conditions for total count and data queries
             let whereConditions: string[] = [];
@@ -159,6 +160,21 @@ export class SessionEventController {
                 // For topic filtering, we need to check if the topic JSON contains the category as a key
                 whereConditions.push(`topic ? $${paramIndex}`);
                 params.push(category);
+                paramIndex++;
+            }
+
+            if (topic) {
+                // For topic subtopic filtering, we need to check if any value in the topic JSON matches the topic
+                // Using the -> operator to get the value of the topic JSON field for the specified category
+                whereConditions.push(`(
+                    topic IS NOT NULL AND
+                    EXISTS (
+                        SELECT 1
+                        FROM jsonb_each_text(topic) AS t
+                        WHERE t.value = $${paramIndex}
+                    )
+                )`);
+                params.push(topic);
                 paramIndex++;
             }
 
@@ -216,7 +232,8 @@ export class SessionEventController {
                 hasPrevPage: page > 1,
                 appliedFilters: {
                     emotion: emotion || null,
-                    category: category || null
+                    category: category || null,
+                    topic: topic || null
                 }
             };
 
@@ -500,6 +517,38 @@ export class SessionEventController {
             console.error("Error fetching distinct categories:", error);
             return handleServiceResponse(
                 ServiceResponse.failure("Error fetching categories", error, StatusCodes.INTERNAL_SERVER_ERROR),
+                res
+            );
+        }
+    };
+
+    public getDistinctTopics: RequestHandler = async (req: Request, res: Response) => {
+        try {
+            console.log("Fetching distinct topics (subtopics)...");
+
+            // Query to extract distinct values from the topic JSON field
+            const query = `
+                SELECT DISTINCT t.value AS topic
+                FROM "SessionEvent", jsonb_each_text(topic) AS t
+                WHERE topic IS NOT NULL
+                ORDER BY topic
+            `;
+
+            const topics = await prismaClient.$queryRawUnsafe<{ topic: string }[]>(query);
+
+            console.log(`Found ${topics.length} distinct topics`);
+
+            return handleServiceResponse(
+                ServiceResponse.success(
+                    "Topics retrieved successfully",
+                    topics.map(row => row.topic)
+                ),
+                res
+            );
+        } catch (error) {
+            console.error("Error fetching distinct topics:", error);
+            return handleServiceResponse(
+                ServiceResponse.failure("Error fetching topics", error, StatusCodes.INTERNAL_SERVER_ERROR),
                 res
             );
         }

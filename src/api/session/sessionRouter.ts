@@ -13,6 +13,7 @@ export const sessionEventRouter: Router = express.Router();
 sessionEventRegistry.register("SessionEvent", SessionEventSchema);
 
 const CategoriesResponseSchema = z.array(z.string());
+const TopicsResponseSchema = z.array(z.string());
 
 sessionEventRegistry.registerSecurePath({
   method: "get",
@@ -58,7 +59,16 @@ sessionEventRegistry.registerSecurePath({
     {
       name: "category",
       in: "query",
-      description: "Filter sessions by category/topic",
+      description: "Filter sessions by category/topic (the key in the topic object)",
+      required: false,
+      schema: {
+        type: "string",
+      },
+    },
+    {
+      name: "topic",
+      in: "query",
+      description: "Filter sessions by specific topic (the value in the topic object)",
       required: false,
       schema: {
         type: "string",
@@ -105,6 +115,13 @@ sessionEventRegistry.registerSecurePath({
   responses: createApiResponse(CategoriesResponseSchema, "Categories Retrieved"),
 });
 
+sessionEventRegistry.registerSecurePath({
+  method: "get",
+  path: "/api/event/topics",
+  tags: ["SessionEvent"],
+  responses: createApiResponse(TopicsResponseSchema, "Topics Retrieved"),
+});
+
 // Basic Auth configuration
 const basicAuthMiddleware = expressBasicAuth({
   users: { 'User1': 'hyQ39c8E873MVv5e22E3T355n3bYV5nf' },
@@ -118,6 +135,7 @@ const basicAuthMiddleware = expressBasicAuth({
 sessionEventRouter.get("/dashboard", passport.authenticate("jwt", { session: false }), sessionEventController.getSessionsByFilter);
 sessionEventRouter.get("/categories", passport.authenticate("jwt", { session: false }), sessionEventController.getDistinctCategories);
 sessionEventRouter.get("/job/:jobId", passport.authenticate("jwt", { session: false }), sessionEventController.getJobStatus);
+sessionEventRouter.get("/topics", passport.authenticate("jwt", { session: false }), sessionEventController.getDistinctTopics);
 sessionEventRouter.get("/:id", passport.authenticate("jwt", { session: false }), sessionEventController.getSessionEventById);
 sessionEventRouter.get("/", passport.authenticate("jwt", { session: false }), sessionEventController.getSessions);
 sessionEventRouter.post("/sessionReceived", basicAuthMiddleware, sessionEventController.createSessionEvent);
