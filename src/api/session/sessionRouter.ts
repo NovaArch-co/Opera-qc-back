@@ -52,6 +52,15 @@ sessionEventRegistry.registerSecurePath({
         type: "string",
       },
     },
+    {
+      name: "category",
+      in: "query",
+      description: "Filter sessions by category/topic",
+      required: false,
+      schema: {
+        type: "string",
+      },
+    },
   ],
   responses: createApiResponse(GetSessionEventsSchema, "Success"),
 });

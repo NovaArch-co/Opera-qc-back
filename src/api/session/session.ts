@@ -137,35 +137,49 @@ export class SessionEventController {
             const page = parseInt(req.query.page as string) || 1;
             const limit = parseInt(req.query.limit as string) || 10;
             const offset = (page - 1) * limit;
-            // Extract emotion filter from query
-            const emotion = req.query.emotion as string | undefined;
 
-            console.log("Pagination and filter params:", { page, limit, offset, emotion });
+            // Extract filters from query
+            const emotion = req.query.emotion as string | undefined;
+            const category = req.query.category as string | undefined;
+
+            console.log("Pagination and filter params:", { page, limit, offset, emotion, category });
 
             // Build conditions for total count and data queries
-            let whereCondition = '';
+            let whereConditions: string[] = [];
             let params: any[] = [];
+            let paramIndex = 1;
 
             if (emotion) {
-                whereCondition = 'WHERE emotion = $1';
+                whereConditions.push(`emotion = $${paramIndex}`);
                 params.push(emotion);
+                paramIndex++;
             }
 
+            if (category) {
+                // For topic filtering, we need to check if the topic JSON contains the category as a key
+                whereConditions.push(`topic ? $${paramIndex}`);
+                params.push(category);
+                paramIndex++;
+            }
+
+            const whereClause = whereConditions.length > 0
+                ? `WHERE ${whereConditions.join(' AND ')}`
+                : '';
+
             // Get total count for pagination metadata with proper escaping
-            const totalCountQuery = `SELECT COUNT(*) as total FROM "SessionEvent" ${whereCondition}`;
+            const totalCountQuery = `SELECT COUNT(*) as total FROM "SessionEvent" ${whereClause}`;
             const totalCountResult = await prismaClient.$queryRawUnsafe<{ total: number }[]>(
                 totalCountQuery,
                 ...params
             );
             const totalCount = Number(totalCountResult[0].total || 0);
 
-            // 🛠 Prisma Raw Query to fetch paginated sessions with emotion filter
-            // Note: We need to add the LIMIT and OFFSET params to our params array
+            // 🛠 Prisma Raw Query to fetch paginated sessions with filters
             const dataQuery = `
                 SELECT * FROM "SessionEvent"
-                ${whereCondition}
+                ${whereClause}
                 ORDER BY date DESC
-                LIMIT $${params.length + 1} OFFSET $${params.length + 2}
+                LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
             `;
 
             const sessionEvents = await prismaClient.$queryRawUnsafe(
@@ -201,7 +215,8 @@ export class SessionEventController {
                 hasNextPage: page < totalPages,
                 hasPrevPage: page > 1,
                 appliedFilters: {
-                    emotion: emotion || null
+                    emotion: emotion || null,
+                    category: category || null
                 }
             };
 
