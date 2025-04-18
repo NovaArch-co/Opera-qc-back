@@ -473,6 +473,38 @@ export class SessionEventController {
         }
     };
 
+    public getDistinctCategories: RequestHandler = async (req: Request, res: Response) => {
+        try {
+            console.log("Fetching distinct categories...");
+
+            // Query to extract distinct keys from the topic JSON field
+            const query = `
+                SELECT DISTINCT jsonb_object_keys(topic) AS category
+                FROM "SessionEvent"
+                WHERE topic IS NOT NULL
+                ORDER BY category
+            `;
+
+            const categories = await prismaClient.$queryRawUnsafe<{ category: string }[]>(query);
+
+            console.log(`Found ${categories.length} distinct categories`);
+
+            return handleServiceResponse(
+                ServiceResponse.success(
+                    "Categories retrieved successfully",
+                    categories.map(row => row.category)
+                ),
+                res
+            );
+        } catch (error) {
+            console.error("Error fetching distinct categories:", error);
+            return handleServiceResponse(
+                ServiceResponse.failure("Error fetching categories", error, StatusCodes.INTERNAL_SERVER_ERROR),
+                res
+            );
+        }
+    };
+
 }
 
 

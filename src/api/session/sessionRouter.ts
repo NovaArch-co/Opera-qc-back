@@ -5,11 +5,14 @@ import { CreateSessionEventResponseSchema, GetSessionEventsSchema, SessionEventS
 import { sessionEventController } from "./session";
 import expressBasicAuth from "express-basic-auth";
 import passport from "passport";
+import { z } from "zod";
 
 export const sessionEventRegistry = new ExtendedOpenAPIRegistry();
 export const sessionEventRouter: Router = express.Router();
 
 sessionEventRegistry.register("SessionEvent", SessionEventSchema);
+
+const CategoriesResponseSchema = z.array(z.string());
 
 sessionEventRegistry.registerSecurePath({
   method: "get",
@@ -95,6 +98,13 @@ sessionEventRegistry.registerSecurePath({
   responses: createApiResponse(SessionEventSchema, "Job Status"),
 });
 
+sessionEventRegistry.registerSecurePath({
+  method: "get",
+  path: "/api/event/categories",
+  tags: ["SessionEvent"],
+  responses: createApiResponse(CategoriesResponseSchema, "Categories Retrieved"),
+});
+
 // Basic Auth configuration
 const basicAuthMiddleware = expressBasicAuth({
   users: { 'User1': 'hyQ39c8E873MVv5e22E3T355n3bYV5nf' },
@@ -110,4 +120,5 @@ sessionEventRouter.get("/:id", passport.authenticate("jwt", { session: false }),
 sessionEventRouter.get("/", passport.authenticate("jwt", { session: false }), sessionEventController.getSessions);
 sessionEventRouter.post("/sessionReceived", basicAuthMiddleware, sessionEventController.createSessionEvent);
 sessionEventRouter.get("/job/:jobId", passport.authenticate("jwt", { session: false }), sessionEventController.getJobStatus);
+sessionEventRouter.get("/categories", passport.authenticate("jwt", { session: false }), sessionEventController.getDistinctCategories);
 
