@@ -22,6 +22,37 @@ sessionEventRegistry.registerSecurePath({
   method: "get",
   path: "/api/event",
   tags: ["SessionEvent"],
+  parameters: [
+    {
+      name: "page",
+      in: "query",
+      description: "Page number for pagination",
+      required: false,
+      schema: {
+        type: "integer",
+        default: 1,
+      },
+    },
+    {
+      name: "limit",
+      in: "query",
+      description: "Number of items per page",
+      required: false,
+      schema: {
+        type: "integer",
+        default: 10,
+      },
+    },
+    {
+      name: "emotion",
+      in: "query",
+      description: "Filter sessions by specific emotion",
+      required: false,
+      schema: {
+        type: "string",
+      },
+    },
+  ],
   responses: createApiResponse(GetSessionEventsSchema, "Success"),
 });
 

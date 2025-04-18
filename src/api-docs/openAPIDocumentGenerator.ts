@@ -4,14 +4,12 @@ import { authRegistry } from "@/api/auth/authRouter";
 import { userRegistry } from "@/api/user/userRouter";
 import { sessionEventRegistry } from "@/api/session/sessionRouter";
 import { env } from "@/common/utils/envConfig";
-import { callsRegistry } from "@/api/calls/callsRouter";
 
 export function generateOpenAPIDocument() {
     const registry = new OpenAPIRegistry([
         userRegistry,
         authRegistry,
-        sessionEventRegistry,
-        callsRegistry
+        sessionEventRegistry
     ]);
     const generator = new OpenApiGeneratorV3(registry.definitions);
 

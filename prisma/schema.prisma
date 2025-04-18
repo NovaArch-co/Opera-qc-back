@@ -49,13 +49,5 @@ model SessionEvent {
   hostname          String   // Required based on migration
   name              String   // Required based on migration
   msg               String   // Required based on migration
-
-  // Add indexes for better query performance
-  @@index([date])
-  @@index([destNumber])
-  @@index([emotion])
-  @@index([routinCheckStart])
-  @@index([routinCheckEnd])
-  @@index([duration])
 }
 

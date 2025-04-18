@@ -18,7 +18,6 @@ import expressBasicAuth from "express-basic-auth";
 import { sessionWorker } from '@/queue/sessionQueue';
 import { sequentialWorker } from '@/queue/sequentialQueue';
 import { sequentialRouter } from "@/api/sequential/sequentialRouter";
-import { callsRouter } from "@/api/calls/callsRouter";
 
 const logger = pino({ name: "server start" });
 const app: Express = express();
@@ -72,7 +71,6 @@ app.use("/api/users", passport.authenticate("jwt", { session: false }), userRout
 // app.use("/api/sessions", passport.authenticate("jwt", { session: false }), sessionEventRouter);
 app.use("/api/event", sessionEventRouter);
 app.use("/api/sequential", sequentialRouter);
-app.use("/api/calls", passport.authenticate("jwt", { session: false }), callsRouter);
 // Swagger UI
 app.use("/api/docs", openAPIRouter);
 app.use(helmet());

@@ -131,27 +131,49 @@ export class SessionEventController {
 
     public getSessions: RequestHandler = async (req: Request, res: Response) => {
         try {
-            console.log("Fetching sessions with pagination...");
+            console.log("Fetching sessions with pagination and filters...");
 
             // Extract pagination parameters from query
             const page = parseInt(req.query.page as string) || 1;
             const limit = parseInt(req.query.limit as string) || 10;
             const offset = (page - 1) * limit;
+            // Extract emotion filter from query
+            const emotion = req.query.emotion as string | undefined;
 
-            console.log("Pagination params:", { page, limit, offset });
+            console.log("Pagination and filter params:", { page, limit, offset, emotion });
 
-            // Get total count for pagination metadata
-            const totalCountResult = await prismaClient.$queryRaw<{ total: number }[]>`
-                SELECT COUNT(*) as total FROM "SessionEvent"
-            `;
+            // Build conditions for total count and data queries
+            let whereCondition = '';
+            let params: any[] = [];
+
+            if (emotion) {
+                whereCondition = 'WHERE emotion = $1';
+                params.push(emotion);
+            }
+
+            // Get total count for pagination metadata with proper escaping
+            const totalCountQuery = `SELECT COUNT(*) as total FROM "SessionEvent" ${whereCondition}`;
+            const totalCountResult = await prismaClient.$queryRawUnsafe<{ total: number }[]>(
+                totalCountQuery,
+                ...params
+            );
             const totalCount = Number(totalCountResult[0].total || 0);
 
-            // 🛠 Prisma Raw Query to fetch paginated sessions
-            const sessionEvents = await prismaClient.$queryRaw`
+            // 🛠 Prisma Raw Query to fetch paginated sessions with emotion filter
+            // Note: We need to add the LIMIT and OFFSET params to our params array
+            const dataQuery = `
                 SELECT * FROM "SessionEvent"
+                ${whereCondition}
                 ORDER BY date DESC
-                LIMIT ${limit} OFFSET ${offset}
+                LIMIT $${params.length + 1} OFFSET $${params.length + 2}
             `;
+
+            const sessionEvents = await prismaClient.$queryRawUnsafe(
+                dataQuery,
+                ...params,
+                limit,
+                offset
+            );
 
             console.log("Fetched Sessions:", (sessionEvents as any[]).length);
 
@@ -177,7 +199,10 @@ export class SessionEventController {
                 totalItems: totalCount,
                 limit,
                 hasNextPage: page < totalPages,
-                hasPrevPage: page > 1
+                hasPrevPage: page > 1,
+                appliedFilters: {
+                    emotion: emotion || null
+                }
             };
 
             return handleServiceResponse(
