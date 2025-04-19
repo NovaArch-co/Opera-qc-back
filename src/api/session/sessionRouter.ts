@@ -15,6 +15,15 @@ sessionEventRegistry.register("SessionEvent", SessionEventSchema);
 const CategoriesResponseSchema = z.array(z.string());
 const TopicsResponseSchema = z.array(z.string());
 
+const SessionStatsResponseSchema = z.object({
+  total_calls: z.number(),
+  total_agents: z.number(),
+  top_emotion: z.string().nullable(),
+  top_emotion_count: z.number(),
+  distinct_categories: z.number(),
+  distinct_topics: z.number()
+});
+
 sessionEventRegistry.registerSecurePath({
   method: "get",
   path: "/api/event/:id",
@@ -122,6 +131,13 @@ sessionEventRegistry.registerSecurePath({
   responses: createApiResponse(TopicsResponseSchema, "Topics Retrieved"),
 });
 
+sessionEventRegistry.registerSecurePath({
+  method: "get",
+  path: "/api/event/stats",
+  tags: ["SessionEvent"],
+  responses: createApiResponse(SessionStatsResponseSchema, "Session Statistics Retrieved"),
+});
+
 // Basic Auth configuration
 const basicAuthMiddleware = expressBasicAuth({
   users: { 'User1': 'hyQ39c8E873MVv5e22E3T355n3bYV5nf' },
@@ -136,6 +152,7 @@ sessionEventRouter.get("/dashboard", passport.authenticate("jwt", { session: fal
 sessionEventRouter.get("/categories", passport.authenticate("jwt", { session: false }), sessionEventController.getDistinctCategories);
 sessionEventRouter.get("/job/:jobId", passport.authenticate("jwt", { session: false }), sessionEventController.getJobStatus);
 sessionEventRouter.get("/topics", passport.authenticate("jwt", { session: false }), sessionEventController.getDistinctTopics);
+sessionEventRouter.get("/stats", passport.authenticate("jwt", { session: false }), sessionEventController.getSessionStats);
 sessionEventRouter.get("/:id", passport.authenticate("jwt", { session: false }), sessionEventController.getSessionEventById);
 sessionEventRouter.get("/", passport.authenticate("jwt", { session: false }), sessionEventController.getSessions);
 sessionEventRouter.post("/sessionReceived", basicAuthMiddleware, sessionEventController.createSessionEvent);

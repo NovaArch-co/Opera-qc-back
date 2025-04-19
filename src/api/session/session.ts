@@ -554,6 +554,92 @@ export class SessionEventController {
         }
     };
 
+    public getSessionStats: RequestHandler = async (req: Request, res: Response) => {
+        try {
+            console.log("Fetching session statistics...");
+
+            // Query to get call count, agent count, top emotion, and topic count
+            const query = `
+                WITH call_stats AS (
+                    SELECT 
+                        COUNT(*) AS total_calls,
+                        COUNT(DISTINCT name) AS total_agents
+                    FROM "SessionEvent"
+                ),
+                emotion_stats AS (
+                    SELECT 
+                        emotion,
+                        COUNT(*) as emotion_count
+                    FROM "SessionEvent"
+                    WHERE emotion IS NOT NULL
+                    GROUP BY emotion
+                    ORDER BY emotion_count DESC
+                    LIMIT 1
+                ),
+                topic_stats AS (
+                    SELECT 
+                        COUNT(DISTINCT jsonb_object_keys(topic)) AS distinct_categories
+                    FROM "SessionEvent"
+                    WHERE topic IS NOT NULL
+                ),
+                subtopic_stats AS (
+                    SELECT 
+                        COUNT(DISTINCT t.value) AS distinct_topics
+                    FROM "SessionEvent", jsonb_each_text(topic) AS t
+                    WHERE topic IS NOT NULL
+                )
+                SELECT 
+                    c.total_calls,
+                    c.total_agents,
+                    e.emotion AS top_emotion,
+                    e.emotion_count AS top_emotion_count,
+                    t.distinct_categories,
+                    s.distinct_topics
+                FROM 
+                    call_stats c,
+                    emotion_stats e,
+                    topic_stats t,
+                    subtopic_stats s
+            `;
+
+            const stats = await prismaClient.$queryRawUnsafe<{
+                total_calls: number,
+                total_agents: number,
+                top_emotion: string,
+                top_emotion_count: number,
+                distinct_categories: number,
+                distinct_topics: number
+            }[]>(query);
+
+            if (stats.length === 0) {
+                return handleServiceResponse(
+                    ServiceResponse.success("No statistics available", {
+                        total_calls: 0,
+                        total_agents: 0,
+                        top_emotion: null,
+                        top_emotion_count: 0,
+                        distinct_categories: 0,
+                        distinct_topics: 0
+                    }),
+                    res
+                );
+            }
+
+            console.log("Statistics fetched successfully:", stats[0]);
+
+            return handleServiceResponse(
+                ServiceResponse.success("Session statistics retrieved successfully", stats[0]),
+                res
+            );
+        } catch (error) {
+            console.error("Error fetching session statistics:", error);
+            return handleServiceResponse(
+                ServiceResponse.failure("Error fetching session statistics", error, StatusCodes.INTERNAL_SERVER_ERROR),
+                res
+            );
+        }
+    };
+
 }
 
 
