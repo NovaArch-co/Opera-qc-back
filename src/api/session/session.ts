@@ -589,8 +589,9 @@ export class SessionEventController {
             const basicStatsQuery = `
                 SELECT 
                     COUNT(*) AS total_calls,
-                    COUNT(DISTINCT name) AS total_agents
+                    COUNT(DISTINCT dest_number) AS total_agents
                 FROM "SessionEvent"
+                WHERE dest_number IS NOT NULL
             `;
 
             const basicStats = await prismaClient.$queryRawUnsafe<{
