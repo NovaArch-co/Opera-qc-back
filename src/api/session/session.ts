@@ -558,77 +558,79 @@ export class SessionEventController {
         try {
             console.log("Fetching session statistics...");
 
-            // Query to get call count, agent count, top emotion, and topic count
-            const query = `
-                WITH call_stats AS (
-                    SELECT 
-                        COUNT(*) AS total_calls,
-                        COUNT(DISTINCT name) AS total_agents
-                    FROM "SessionEvent"
-                ),
-                emotion_stats AS (
-                    SELECT 
-                        emotion,
-                        COUNT(*) as emotion_count
-                    FROM "SessionEvent"
-                    WHERE emotion IS NOT NULL
-                    GROUP BY emotion
-                    ORDER BY emotion_count DESC
-                    LIMIT 1
-                ),
-                topic_stats AS (
-                    SELECT 
-                        COUNT(DISTINCT jsonb_object_keys(topic)) AS distinct_categories
-                    FROM "SessionEvent"
-                    WHERE topic IS NOT NULL
-                ),
-                subtopic_stats AS (
-                    SELECT 
-                        COUNT(DISTINCT t.value) AS distinct_topics
-                    FROM "SessionEvent", jsonb_each_text(topic) AS t
-                    WHERE topic IS NOT NULL
-                )
+            // Query to get call count and agent count
+            const basicStatsQuery = `
                 SELECT 
-                    c.total_calls,
-                    c.total_agents,
-                    e.emotion AS top_emotion,
-                    e.emotion_count AS top_emotion_count,
-                    t.distinct_categories,
-                    s.distinct_topics
-                FROM 
-                    call_stats c,
-                    emotion_stats e,
-                    topic_stats t,
-                    subtopic_stats s
+                    COUNT(*) AS total_calls,
+                    COUNT(DISTINCT name) AS total_agents
+                FROM "SessionEvent"
             `;
 
-            const stats = await prismaClient.$queryRawUnsafe<{
+            const basicStats = await prismaClient.$queryRawUnsafe<{
                 total_calls: number,
-                total_agents: number,
+                total_agents: number
+            }[]>(basicStatsQuery);
+
+            // Query to get top emotion
+            const topEmotionQuery = `
+                SELECT 
+                    emotion AS top_emotion,
+                    COUNT(*) as top_emotion_count
+                FROM "SessionEvent"
+                WHERE emotion IS NOT NULL
+                GROUP BY emotion
+                ORDER BY top_emotion_count DESC
+                LIMIT 1
+            `;
+
+            const emotionStats = await prismaClient.$queryRawUnsafe<{
                 top_emotion: string,
-                top_emotion_count: number,
-                distinct_categories: number,
+                top_emotion_count: number
+            }[]>(topEmotionQuery);
+
+            // Query to get distinct category count (using LATERAL approach)
+            const categoryCountQuery = `
+                SELECT COUNT(DISTINCT category) AS distinct_categories
+                FROM (
+                    SELECT jsonb_object_keys(topic) AS category
+                    FROM "SessionEvent"
+                    WHERE topic IS NOT NULL
+                ) AS categories
+            `;
+
+            const categoryStats = await prismaClient.$queryRawUnsafe<{
+                distinct_categories: number
+            }[]>(categoryCountQuery);
+
+            // Query to get distinct topic count (using LATERAL approach)
+            const topicCountQuery = `
+                SELECT COUNT(DISTINCT topic_value) AS distinct_topics
+                FROM (
+                    SELECT t.value AS topic_value
+                    FROM "SessionEvent"
+                    CROSS JOIN LATERAL jsonb_each_text(topic) AS t
+                    WHERE topic IS NOT NULL
+                ) AS topics
+            `;
+
+            const topicStats = await prismaClient.$queryRawUnsafe<{
                 distinct_topics: number
-            }[]>(query);
+            }[]>(topicCountQuery);
 
-            if (stats.length === 0) {
-                return handleServiceResponse(
-                    ServiceResponse.success("No statistics available", {
-                        total_calls: 0,
-                        total_agents: 0,
-                        top_emotion: null,
-                        top_emotion_count: 0,
-                        distinct_categories: 0,
-                        distinct_topics: 0
-                    }),
-                    res
-                );
-            }
+            // Combine all statistics
+            const combinedStats = {
+                total_calls: basicStats[0]?.total_calls || 0,
+                total_agents: basicStats[0]?.total_agents || 0,
+                top_emotion: emotionStats[0]?.top_emotion || null,
+                top_emotion_count: emotionStats[0]?.top_emotion_count || 0,
+                distinct_categories: categoryStats[0]?.distinct_categories || 0,
+                distinct_topics: topicStats[0]?.distinct_topics || 0
+            };
 
-            console.log("Statistics fetched successfully:", stats[0]);
+            console.log("Statistics fetched successfully:", combinedStats);
 
             return handleServiceResponse(
-                ServiceResponse.success("Session statistics retrieved successfully", stats[0]),
+                ServiceResponse.success("Session statistics retrieved successfully", combinedStats),
                 res
             );
         } catch (error) {
