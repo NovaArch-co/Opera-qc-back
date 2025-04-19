@@ -554,6 +554,33 @@ export class SessionEventController {
         }
     };
 
+    // Helper function to convert BigInt to Number recursively in objects and arrays
+    private convertBigIntToNumber(data: any): any {
+        if (data === null || data === undefined) {
+            return data;
+        }
+
+        if (typeof data === 'bigint') {
+            return Number(data);
+        }
+
+        if (Array.isArray(data)) {
+            return data.map(item => this.convertBigIntToNumber(item));
+        }
+
+        if (typeof data === 'object') {
+            const result: any = {};
+            for (const key in data) {
+                if (Object.prototype.hasOwnProperty.call(data, key)) {
+                    result[key] = this.convertBigIntToNumber(data[key]);
+                }
+            }
+            return result;
+        }
+
+        return data;
+    }
+
     public getSessionStats: RequestHandler = async (req: Request, res: Response) => {
         try {
             console.log("Fetching session statistics...");
@@ -567,17 +594,17 @@ export class SessionEventController {
             `;
 
             const basicStats = await prismaClient.$queryRawUnsafe<{
-                total_calls: number,
-                total_agents: number
+                total_calls: bigint,
+                total_agents: bigint
             }[]>(basicStatsQuery);
 
-            // Query to get top emotion
+            // Query to get top emotion - ensuring we don't count null emotions
             const topEmotionQuery = `
                 SELECT 
                     emotion AS top_emotion,
                     COUNT(*) as top_emotion_count
                 FROM "SessionEvent"
-                WHERE emotion IS NOT NULL
+                WHERE emotion IS NOT NULL AND TRIM(emotion) != ''
                 GROUP BY emotion
                 ORDER BY top_emotion_count DESC
                 LIMIT 1
@@ -585,7 +612,7 @@ export class SessionEventController {
 
             const emotionStats = await prismaClient.$queryRawUnsafe<{
                 top_emotion: string,
-                top_emotion_count: number
+                top_emotion_count: bigint
             }[]>(topEmotionQuery);
 
             // Query to get distinct category count (using LATERAL approach)
@@ -599,7 +626,7 @@ export class SessionEventController {
             `;
 
             const categoryStats = await prismaClient.$queryRawUnsafe<{
-                distinct_categories: number
+                distinct_categories: bigint
             }[]>(categoryCountQuery);
 
             // Query to get distinct topic count (using LATERAL approach)
@@ -614,18 +641,31 @@ export class SessionEventController {
             `;
 
             const topicStats = await prismaClient.$queryRawUnsafe<{
-                distinct_topics: number
+                distinct_topics: bigint
             }[]>(topicCountQuery);
 
-            // Combine all statistics
+            console.log("Raw emotion stats:", this.convertBigIntToNumber(emotionStats));
+
+            // Convert BigInt to Number in all query results
+            const safeBasicStats = this.convertBigIntToNumber(basicStats[0]) || { total_calls: 0, total_agents: 0 };
+            const safeEmotionStats = this.convertBigIntToNumber(emotionStats[0]) || { top_emotion: null, top_emotion_count: 0 };
+            const safeCategoryStats = this.convertBigIntToNumber(categoryStats[0]) || { distinct_categories: 0 };
+            const safeTopicStats = this.convertBigIntToNumber(topicStats[0]) || { distinct_topics: 0 };
+
+            // Combine all statistics with safe values
             const combinedStats = {
-                total_calls: basicStats[0]?.total_calls || 0,
-                total_agents: basicStats[0]?.total_agents || 0,
-                top_emotion: emotionStats[0]?.top_emotion || null,
-                top_emotion_count: emotionStats[0]?.top_emotion_count || 0,
-                distinct_categories: categoryStats[0]?.distinct_categories || 0,
-                distinct_topics: topicStats[0]?.distinct_topics || 0
+                total_calls: safeBasicStats.total_calls,
+                total_agents: safeBasicStats.total_agents,
+                top_emotion: safeEmotionStats.top_emotion,
+                top_emotion_count: safeEmotionStats.top_emotion_count,
+                distinct_categories: safeCategoryStats.distinct_categories,
+                distinct_topics: safeTopicStats.distinct_topics
             };
+
+            // Add fallback logic for the top_emotion field
+            if (combinedStats.top_emotion === null && combinedStats.top_emotion_count > 0) {
+                combinedStats.top_emotion = "unknown";
+            }
 
             console.log("Statistics fetched successfully:", combinedStats);
 
