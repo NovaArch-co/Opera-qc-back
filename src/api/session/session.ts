@@ -142,8 +142,9 @@ export class SessionEventController {
             const emotion = req.query.emotion as string | undefined;
             const category = req.query.category as string | undefined;
             const topic = req.query.topic as string | undefined;
+            const destNumber = req.query.destNumber as string | undefined;
 
-            console.log("Pagination and filter params:", { page, limit, offset, emotion, category, topic });
+            console.log("Pagination and filter params:", { page, limit, offset, emotion, category, topic, destNumber });
 
             // Build conditions for total count and data queries
             let whereConditions: string[] = [];
@@ -158,23 +159,36 @@ export class SessionEventController {
 
             if (category) {
                 // For topic filtering, we need to check if the topic JSON contains the category as a key
-                whereConditions.push(`topic ? $${paramIndex}`);
+                // Ensure topic is a JSON object before checking for keys
+                whereConditions.push(`(
+                    topic IS NOT NULL 
+                    AND jsonb_typeof(topic) = 'object'
+                    AND topic ? $${paramIndex}
+                )`);
                 params.push(category);
                 paramIndex++;
             }
 
             if (topic) {
                 // For topic subtopic filtering, we need to check if any value in the topic JSON matches the topic
-                // Using the -> operator to get the value of the topic JSON field for the specified category
+                // Ensure topic is a JSON object before checking values
                 whereConditions.push(`(
-                    topic IS NOT NULL AND
-                    EXISTS (
+                    topic IS NOT NULL 
+                    AND jsonb_typeof(topic) = 'object'
+                    AND EXISTS (
                         SELECT 1
                         FROM jsonb_each_text(topic) AS t
                         WHERE t.value = $${paramIndex}
                     )
                 )`);
                 params.push(topic);
+                paramIndex++;
+            }
+
+            if (destNumber) {
+                // For destination number filtering
+                whereConditions.push(`dest_number = $${paramIndex}`);
+                params.push(destNumber);
                 paramIndex++;
             }
 
@@ -233,7 +247,8 @@ export class SessionEventController {
                 appliedFilters: {
                     emotion: emotion || null,
                     category: category || null,
-                    topic: topic || null
+                    topic: topic || null,
+                    destNumber: destNumber || null
                 }
             };
 
@@ -301,7 +316,7 @@ export class SessionEventController {
             }
 
             console.log("Executing main dashboard query...");
-            const result = await prismaClient.$queryRaw<any[]>`
+            const result = await prismaClient.$queryRawUnsafe<any[]>(`
             WITH filtered_data AS (
                 SELECT * FROM "SessionEvent"
             )
@@ -370,7 +385,7 @@ export class SessionEventController {
                     COUNT(*) AS count
                 FROM filtered_data,
                 LATERAL jsonb_object_keys(topic) AS key
-                WHERE topic IS NOT NULL
+                WHERE topic IS NOT NULL AND jsonb_typeof(topic) = 'object'
                 GROUP BY key
                 ORDER BY count DESC
             )
@@ -381,7 +396,7 @@ export class SessionEventController {
                     COUNT(*) AS count
                 FROM filtered_data,
                 LATERAL jsonb_object_keys(topic) AS key
-                WHERE topic IS NOT NULL
+                WHERE topic IS NOT NULL AND jsonb_typeof(topic) = 'object'
                 GROUP BY key, call_date
             )
             SELECT
@@ -393,7 +408,7 @@ export class SessionEventController {
                 (SELECT jsonb_agg(ta) FROM top_agent_count ta) AS top_agent_count,
                 (SELECT jsonb_agg(tp) FROM topic_distribution tp) AS topic_pie_chart,
                 (SELECT jsonb_agg(tt) FROM topic_trend tt) AS topic_line_chart;
-        `;
+            `);
 
             console.log("Query result:", JSON.stringify(result[0], null, 2));
 
@@ -495,10 +510,11 @@ export class SessionEventController {
             console.log("Fetching distinct categories...");
 
             // Query to extract distinct keys from the topic JSON field
+            // Added check for jsonb_typeof to ensure topic is a JSON object
             const query = `
                 SELECT DISTINCT jsonb_object_keys(topic) AS category
                 FROM "SessionEvent"
-                WHERE topic IS NOT NULL
+                WHERE topic IS NOT NULL AND jsonb_typeof(topic) = 'object'
                 ORDER BY category
             `;
 
@@ -527,10 +543,12 @@ export class SessionEventController {
             console.log("Fetching distinct topics (subtopics)...");
 
             // Query to extract distinct values from the topic JSON field
+            // Added check for jsonb_typeof to ensure topic is a JSON object
             const query = `
                 SELECT DISTINCT t.value AS topic
-                FROM "SessionEvent", jsonb_each_text(topic) AS t
-                WHERE topic IS NOT NULL
+                FROM "SessionEvent"
+                CROSS JOIN LATERAL jsonb_each_text(topic) AS t
+                WHERE topic IS NOT NULL AND jsonb_typeof(topic) = 'object'
                 ORDER BY topic
             `;
 
@@ -549,6 +567,41 @@ export class SessionEventController {
             console.error("Error fetching distinct topics:", error);
             return handleServiceResponse(
                 ServiceResponse.failure("Error fetching topics", error, StatusCodes.INTERNAL_SERVER_ERROR),
+                res
+            );
+        }
+    };
+
+    public getDistinctDestNumbers: RequestHandler = async (req: Request, res: Response) => {
+        try {
+            console.log("Fetching distinct destination numbers...");
+
+            // Query to get distinct destination numbers
+            const query = `
+                SELECT DISTINCT dest_number
+                FROM "SessionEvent"
+                WHERE dest_number IS NOT NULL
+                ORDER BY dest_number
+            `;
+
+            const destNumbers = await prismaClient.$queryRawUnsafe<{ dest_number: string }[]>(query);
+
+            console.log(`Found ${destNumbers.length} distinct destination numbers`);
+
+            // Convert any potential BigInt values
+            const safeDestNumbers = this.convertBigIntToNumber(destNumbers);
+
+            return handleServiceResponse(
+                ServiceResponse.success(
+                    "Destination numbers retrieved successfully",
+                    safeDestNumbers.map((row: { dest_number: string }) => row.dest_number)
+                ),
+                res
+            );
+        } catch (error) {
+            console.error("Error fetching distinct destination numbers:", error);
+            return handleServiceResponse(
+                ServiceResponse.failure("Error fetching destination numbers", error, StatusCodes.INTERNAL_SERVER_ERROR),
                 res
             );
         }
@@ -617,12 +670,13 @@ export class SessionEventController {
             }[]>(topEmotionQuery);
 
             // Query to get distinct category count (using LATERAL approach)
+            // Added check for jsonb_typeof to ensure topic is a JSON object
             const categoryCountQuery = `
                 SELECT COUNT(DISTINCT category) AS distinct_categories
                 FROM (
                     SELECT jsonb_object_keys(topic) AS category
                     FROM "SessionEvent"
-                    WHERE topic IS NOT NULL
+                    WHERE topic IS NOT NULL AND jsonb_typeof(topic) = 'object'
                 ) AS categories
             `;
 
@@ -631,13 +685,14 @@ export class SessionEventController {
             }[]>(categoryCountQuery);
 
             // Query to get distinct topic count (using LATERAL approach)
+            // Added check for jsonb_typeof to ensure topic is a JSON object
             const topicCountQuery = `
                 SELECT COUNT(DISTINCT topic_value) AS distinct_topics
                 FROM (
                     SELECT t.value AS topic_value
                     FROM "SessionEvent"
                     CROSS JOIN LATERAL jsonb_each_text(topic) AS t
-                    WHERE topic IS NOT NULL
+                    WHERE topic IS NOT NULL AND jsonb_typeof(topic) = 'object'
                 ) AS topics
             `;
 

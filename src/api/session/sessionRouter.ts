@@ -24,6 +24,8 @@ const SessionStatsResponseSchema = z.object({
   distinct_topics: z.number()
 });
 
+const DestNumbersResponseSchema = z.array(z.string());
+
 sessionEventRegistry.registerSecurePath({
   method: "get",
   path: "/api/event/:id",
@@ -78,6 +80,15 @@ sessionEventRegistry.registerSecurePath({
       name: "topic",
       in: "query",
       description: "Filter sessions by specific topic (the value in the topic object)",
+      required: false,
+      schema: {
+        type: "string",
+      },
+    },
+    {
+      name: "destNumber",
+      in: "query",
+      description: "Filter sessions by agent destination number",
       required: false,
       schema: {
         type: "string",
@@ -138,6 +149,13 @@ sessionEventRegistry.registerSecurePath({
   responses: createApiResponse(SessionStatsResponseSchema, "Session Statistics Retrieved"),
 });
 
+sessionEventRegistry.registerSecurePath({
+  method: "get",
+  path: "/api/event/destnumbers",
+  tags: ["SessionEvent"],
+  responses: createApiResponse(DestNumbersResponseSchema, "Destination Numbers Retrieved"),
+});
+
 // Basic Auth configuration
 const basicAuthMiddleware = expressBasicAuth({
   users: { 'User1': 'hyQ39c8E873MVv5e22E3T355n3bYV5nf' },
@@ -153,6 +171,7 @@ sessionEventRouter.get("/categories", passport.authenticate("jwt", { session: fa
 sessionEventRouter.get("/job/:jobId", passport.authenticate("jwt", { session: false }), sessionEventController.getJobStatus);
 sessionEventRouter.get("/topics", passport.authenticate("jwt", { session: false }), sessionEventController.getDistinctTopics);
 sessionEventRouter.get("/stats", passport.authenticate("jwt", { session: false }), sessionEventController.getSessionStats);
+sessionEventRouter.get("/destnumbers", passport.authenticate("jwt", { session: false }), sessionEventController.getDistinctDestNumbers);
 sessionEventRouter.get("/:id", passport.authenticate("jwt", { session: false }), sessionEventController.getSessionEventById);
 sessionEventRouter.get("/", passport.authenticate("jwt", { session: false }), sessionEventController.getSessions);
 sessionEventRouter.post("/sessionReceived", basicAuthMiddleware, sessionEventController.createSessionEvent);
