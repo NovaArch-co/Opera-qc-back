@@ -186,8 +186,11 @@ export class SessionEventController {
             }
 
             if (destNumber) {
-                // For destination number filtering
-                whereConditions.push(`dest_number = $${paramIndex}`);
+                // For destination number filtering - only for incoming calls
+                whereConditions.push(`(
+                    dest_number = $${paramIndex}
+                    AND type = 'incoming'
+                )`);
                 params.push(destNumber);
                 paramIndex++;
             }
@@ -574,26 +577,26 @@ export class SessionEventController {
 
     public getDistinctDestNumbers: RequestHandler = async (req: Request, res: Response) => {
         try {
-            console.log("Fetching distinct destination numbers...");
+            console.log("Fetching distinct destination numbers for incoming calls...");
 
-            // Query to get distinct destination numbers
+            // Query to get distinct destination numbers only for incoming calls
             const query = `
                 SELECT DISTINCT dest_number
                 FROM "SessionEvent"
-                WHERE dest_number IS NOT NULL
+                WHERE dest_number IS NOT NULL AND type = 'incoming'
                 ORDER BY dest_number
             `;
 
             const destNumbers = await prismaClient.$queryRawUnsafe<{ dest_number: string }[]>(query);
 
-            console.log(`Found ${destNumbers.length} distinct destination numbers`);
+            console.log(`Found ${destNumbers.length} distinct destination numbers for incoming calls`);
 
             // Convert any potential BigInt values
             const safeDestNumbers = this.convertBigIntToNumber(destNumbers);
 
             return handleServiceResponse(
                 ServiceResponse.success(
-                    "Destination numbers retrieved successfully",
+                    "Destination numbers for incoming calls retrieved successfully",
                     safeDestNumbers.map((row: { dest_number: string }) => row.dest_number)
                 ),
                 res
@@ -638,11 +641,11 @@ export class SessionEventController {
         try {
             console.log("Fetching session statistics...");
 
-            // Query to get call count and agent count
+            // Query to get call count and agent count (only count agents for incoming calls)
             const basicStatsQuery = `
                 SELECT 
                     COUNT(*) AS total_calls,
-                    COUNT(DISTINCT dest_number) AS total_agents
+                    COUNT(DISTINCT CASE WHEN type = 'incoming' THEN dest_number ELSE NULL END) AS total_agents
                 FROM "SessionEvent"
                 WHERE dest_number IS NOT NULL
             `;
