@@ -196,7 +196,6 @@ export class SessionEventController {
                 // For destination number filtering - only for incoming calls
                 whereConditions.push(`(
                     dest_number = $${paramIndex}
-                    AND type = 'incoming'
                 )`);
                 params.push(destNumber);
                 paramIndex++;
