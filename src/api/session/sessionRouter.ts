@@ -94,6 +94,16 @@ sessionEventRegistry.registerSecurePath({
         type: "string",
       },
     },
+    {
+      name: "type",
+      in: "query",
+      description: "Filter sessions by call type (incoming or outgoing)",
+      required: false,
+      schema: {
+        type: "string",
+        enum: ["incoming", "outgoing"]
+      },
+    },
   ],
   responses: createApiResponse(GetSessionEventsSchema, "Success"),
 });

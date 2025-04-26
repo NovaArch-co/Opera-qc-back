@@ -143,8 +143,9 @@ export class SessionEventController {
             const category = req.query.category as string | undefined;
             const topic = req.query.topic as string | undefined;
             const destNumber = req.query.destNumber as string | undefined;
+            const callType = req.query.type as string | undefined;
 
-            console.log("Pagination and filter params:", { page, limit, offset, emotion, category, topic, destNumber });
+            console.log("Pagination and filter params:", { page, limit, offset, emotion, category, topic, destNumber, callType });
 
             // Build conditions for total count and data queries
             let whereConditions: string[] = [];
@@ -154,6 +155,12 @@ export class SessionEventController {
             if (emotion) {
                 whereConditions.push(`emotion = $${paramIndex}`);
                 params.push(emotion);
+                paramIndex++;
+            }
+
+            if (callType) {
+                whereConditions.push(`type = $${paramIndex}`);
+                params.push(callType);
                 paramIndex++;
             }
 
@@ -304,8 +311,6 @@ export class SessionEventController {
             } catch (dbError) {
                 console.error("Error checking database records:", dbError);
             }
-
-            // Check if we have any records with emotions
             try {
                 console.log("Executing emotion count query...");
                 const emotionCount = await prismaClient.$queryRaw<{ count: number }[]>`
