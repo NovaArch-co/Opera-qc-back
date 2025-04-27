@@ -193,7 +193,6 @@ export class SessionEventController {
             }
 
             if (destNumber) {
-                // For destination number filtering - only for incoming calls
                 whereConditions.push(`(
                     dest_number = $${paramIndex}
                 )`);

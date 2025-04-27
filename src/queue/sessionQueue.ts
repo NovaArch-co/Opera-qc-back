@@ -50,7 +50,7 @@ async function ensureBucketExists(bucketName: string) {
 export const sessionQueue = new Queue('session-processing', {
     connection: {
         host: env.REDIS_HOST || 'localhost',
-        port: String(parseInt(env.REDIS_PORT || '6379', 10)),
+        port: Number(env.REDIS_PORT || '6379'),
     }
 });
 
@@ -90,8 +90,13 @@ export const sessionWorker = new Worker(
             // Download audio file from file server
             const baseFileName = filename.replace(".wav", "");
 
+            // Use different base URLs based on the call type
+            const fileServerBaseUrl = type === 'incoming'
+                ? env.FILE_SERVER_BASE_URL
+                : 'http://192.168.1.115/tmp/two-channel/stream-audio-outgoing.php?recfile=';
+
             // Download customer file (-in)
-            const customerFileUrl = `${env.FILE_SERVER_BASE_URL}${baseFileName}-in`;
+            const customerFileUrl = `${fileServerBaseUrl}${baseFileName}-in`;
             console.log("Downloading customer file from:", customerFileUrl);
             const customerResponse = await axios.get(customerFileUrl, {
                 responseType: 'arraybuffer',
@@ -100,7 +105,7 @@ export const sessionWorker = new Worker(
             const customerAudioBuffer = Buffer.from(customerResponse.data);
 
             // Download agent file (-out)
-            const agentFileUrl = `${env.FILE_SERVER_BASE_URL}${baseFileName}-out`;
+            const agentFileUrl = `${fileServerBaseUrl}${baseFileName}-out`;
             console.log("Downloading agent file from:", agentFileUrl);
             const agentResponse = await axios.get(agentFileUrl, {
                 responseType: 'arraybuffer',
@@ -258,7 +263,7 @@ export const sessionWorker = new Worker(
     {
         connection: {
             host: env.REDIS_HOST,
-            port: String(parseInt(env.REDIS_PORT, 10)),
+            port: Number(env.REDIS_PORT || '6379'),
         },
         concurrency: 5,
         removeOnComplete: { count: 1000 },
