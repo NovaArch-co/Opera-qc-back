@@ -8,6 +8,8 @@ services:
       - "6379:6379"
     volumes:
       - redis_data:/data
+    sysctls:
+      - "vm.overcommit_memory=1"
     command: redis-server --appendonly yes
     networks:
       - app-network
