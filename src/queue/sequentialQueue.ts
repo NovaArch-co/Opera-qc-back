@@ -159,8 +159,13 @@ async function processSessionJob(jobData: any) {
         // Download audio file from file server
         const baseFileName = filename.replace(".wav", "");
 
+        // Use different base URLs based on the call type
+        const fileServerBaseUrl = type === 'incoming'
+            ? env.FILE_SERVER_BASE_URL
+            : 'http://192.168.1.115/tmp/two-channel/stream-audio-outgoing.php?recfile=';
+
         // Download customer file (-in)
-        const customerFileUrl = `${env.FILE_SERVER_BASE_URL}${baseFileName}-in`;
+        const customerFileUrl = `${fileServerBaseUrl}${baseFileName}-in`;
         console.log("Downloading customer file from:", customerFileUrl);
         const customerResponse = await axios.get(customerFileUrl, {
             responseType: 'arraybuffer',
@@ -169,7 +174,7 @@ async function processSessionJob(jobData: any) {
         const customerAudioBuffer = Buffer.from(customerResponse.data);
 
         // Download agent file (-out)
-        const agentFileUrl = `${env.FILE_SERVER_BASE_URL}${baseFileName}-out`;
+        const agentFileUrl = `${fileServerBaseUrl}${baseFileName}-out`;
         console.log("Downloading agent file from:", agentFileUrl);
         const agentResponse = await axios.get(agentFileUrl, {
             responseType: 'arraybuffer',
