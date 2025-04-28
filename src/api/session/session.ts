@@ -814,8 +814,8 @@ export class SessionEventController {
                 );
             }
 
-            // Build the complete file path
-            const audioDirectory = '/home/afeai/conversations';
+            // Directory where audio files are stored (configure via AUDIO_DIR env or default to ./conversations)
+            const audioDirectory = process.env.AUDIO_DIR || path.join(process.cwd(), 'conversations');
             let filePath = path.join(audioDirectory, filename);
 
             console.log(`Attempting to access audio file: ${filePath}`);
