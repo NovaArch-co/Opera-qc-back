@@ -55,6 +55,7 @@ services:
     container_name: app
     ports:
       - "8081:8081"
+      - "5555:5555" 
     environment:
       - NODE_ENV=development
       - PORT=8081
