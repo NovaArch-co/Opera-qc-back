@@ -816,15 +816,51 @@ export class SessionEventController {
 
             // Build the complete file path
             const audioDirectory = '/home/afeai/conversations';
-            const filePath = path.join(audioDirectory, filename);
+            let filePath = path.join(audioDirectory, filename);
 
-            // Check if the file exists
-            if (!fs.existsSync(filePath)) {
+            console.log(`Attempting to access audio file: ${filePath}`);
+
+            // Check if directory exists
+            if (!fs.existsSync(audioDirectory)) {
+                console.error(`Audio directory does not exist: ${audioDirectory}`);
                 return handleServiceResponse(
-                    ServiceResponse.failure("Audio file not found", {}, StatusCodes.NOT_FOUND),
+                    ServiceResponse.failure("Audio directory not found", {}, StatusCodes.NOT_FOUND),
                     res
                 );
             }
+
+            // List files in the directory to help with debugging
+            try {
+                const files = fs.readdirSync(audioDirectory);
+                console.log(`Files in ${audioDirectory}:`, files.slice(0, 10)); // Show first 10 files
+                console.log(`Total files in directory: ${files.length}`);
+
+                // Check if the file exists with case-insensitive search
+                const fileExists = files.some(file => file.toLowerCase() === filename.toLowerCase());
+                if (fileExists) {
+                    console.log(`File exists with different case sensitivity`);
+                    // Find the actual filename with correct case
+                    const actualFilename = files.find(file => file.toLowerCase() === filename.toLowerCase());
+                    if (actualFilename) {
+                        console.log(`Using actual filename: ${actualFilename}`);
+                        // Update the file path with the correct case
+                        filePath = path.join(audioDirectory, actualFilename);
+                    }
+                }
+            } catch (err) {
+                console.error(`Error reading directory: ${audioDirectory}`, err);
+            }
+
+            // Check if the file exists
+            if (!fs.existsSync(filePath)) {
+                console.error(`Audio file not found: ${filePath}`);
+                return handleServiceResponse(
+                    ServiceResponse.failure(`Audio file not found: ${filename}`, {}, StatusCodes.NOT_FOUND),
+                    res
+                );
+            }
+
+            console.log(`File found, preparing to stream: ${filePath}`);
 
             // Set the appropriate headers
             res.setHeader('Content-Type', 'audio/wav');
@@ -850,6 +886,149 @@ export class SessionEventController {
                 ServiceResponse.failure("Error serving audio file", error, StatusCodes.INTERNAL_SERVER_ERROR),
                 res
             );
+        }
+    };
+
+    public checkAudioFile: RequestHandler = async (req: Request, res: Response) => {
+        try {
+            const filename = req.params.filename;
+
+            // Validate the filename
+            if (!filename || filename.includes('..') || filename.includes('/') || filename.includes('\\')) {
+                return res.json({
+                    status: 'error',
+                    message: 'Invalid filename',
+                    details: {
+                        filename,
+                        validation: 'failed'
+                    }
+                });
+            }
+
+            const audioDirectory = '/home/afeai/conversations';
+            const filePath = path.join(audioDirectory, filename);
+
+            // Check directory
+            const dirExists = fs.existsSync(audioDirectory);
+            let dirStats: fs.Stats | null = null;
+            let dirPermissions: string | null = null;
+            let directoryFiles: string[] = [];
+
+            if (dirExists) {
+                try {
+                    dirStats = fs.statSync(audioDirectory);
+                    dirPermissions = '0' + (dirStats.mode & parseInt('777', 8)).toString(8);
+
+                    // List files that match similar pattern to help debugging
+                    const allFiles = fs.readdirSync(audioDirectory);
+                    // Get first 20 files and any that are similar to the requested filename
+                    directoryFiles = allFiles
+                        .filter(file => file.includes(filename.split('-')[0]) || directoryFiles.length < 20)
+                        .slice(0, 20);
+                } catch (error) {
+                    console.error('Error getting directory info:', error);
+                }
+            }
+
+            // Check file existence
+            const fileExists = fs.existsSync(filePath);
+            let fileStats: fs.Stats | null = null;
+            let filePermissions: string | null = null;
+            let fileContent: string | null = null;
+
+            if (fileExists) {
+                try {
+                    fileStats = fs.statSync(filePath);
+                    filePermissions = '0' + (fileStats.mode & parseInt('777', 8)).toString(8);
+
+                    // Try to access file
+                    try {
+                        // Read just the first 100 bytes to check if we can access the file
+                        const fd = fs.openSync(filePath, 'r');
+                        const buffer = Buffer.alloc(100);
+                        fs.readSync(fd, buffer, 0, 100, 0);
+                        fs.closeSync(fd);
+                        fileContent = 'First 100 bytes readable';
+                    } catch (readError: any) {
+                        fileContent = `Error reading file: ${readError.message}`;
+                    }
+                } catch (error) {
+                    console.error('Error getting file info:', error);
+                }
+            }
+
+            // Check for similar files (case insensitive)
+            let similarFile: { name: string; exactMatch: boolean; caseDifference: boolean } | null = null;
+            if (dirExists && !fileExists) {
+                try {
+                    const files = fs.readdirSync(audioDirectory);
+                    const match = files.find(file => file.toLowerCase() === filename.toLowerCase());
+                    if (match) {
+                        similarFile = {
+                            name: match,
+                            exactMatch: match === filename,
+                            caseDifference: match !== filename
+                        };
+                    }
+                } catch (error) {
+                    console.error('Error looking for similar files:', error);
+                }
+            }
+
+            // Check process permissions
+            const processInfo = {
+                uid: process.getuid ? process.getuid() : 'Not available',
+                gid: process.getgid ? process.getgid() : 'Not available',
+                cwd: process.cwd(),
+                execPath: process.execPath
+            };
+
+            // Check directory readability
+            let dirReadable = false;
+            try {
+                fs.accessSync(audioDirectory, fs.constants.R_OK);
+                dirReadable = true;
+            } catch (err) {
+                dirReadable = false;
+            }
+
+            return res.json({
+                status: 'success',
+                diagnostics: {
+                    requestedFile: {
+                        filename,
+                        fullPath: filePath
+                    },
+                    directory: {
+                        path: audioDirectory,
+                        exists: dirExists,
+                        stats: dirStats,
+                        permissions: dirPermissions,
+                        readable: dirReadable,
+                        sampleFiles: directoryFiles
+                    },
+                    file: {
+                        exists: fileExists,
+                        stats: fileStats,
+                        permissions: filePermissions,
+                        sizeBytes: fileExists && fileStats ? fileStats.size : null,
+                        readable: fileContent !== null,
+                        content: fileContent
+                    },
+                    similarFile,
+                    process: processInfo
+                }
+            });
+        } catch (error: any) {
+            console.error('Error in checkAudioFile:', error);
+            return res.status(500).json({
+                status: 'error',
+                message: 'Server error checking audio file',
+                error: {
+                    message: error.message,
+                    stack: error.stack
+                }
+            });
         }
     };
 
