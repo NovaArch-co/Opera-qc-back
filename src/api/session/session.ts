@@ -802,6 +802,57 @@ export class SessionEventController {
         }
     };
 
+    public getAudioFile: RequestHandler = async (req: Request, res: Response) => {
+        try {
+            const filename = req.params.filename;
+
+            // Validate the filename to prevent directory traversal attacks
+            if (!filename || filename.includes('..') || filename.includes('/') || filename.includes('\\')) {
+                return handleServiceResponse(
+                    ServiceResponse.failure("Invalid filename", {}, StatusCodes.BAD_REQUEST),
+                    res
+                );
+            }
+
+            // Build the complete file path
+            const audioDirectory = '/home/afeai/conversations';
+            const filePath = path.join(audioDirectory, filename);
+
+            // Check if the file exists
+            if (!fs.existsSync(filePath)) {
+                return handleServiceResponse(
+                    ServiceResponse.failure("Audio file not found", {}, StatusCodes.NOT_FOUND),
+                    res
+                );
+            }
+
+            // Set the appropriate headers
+            res.setHeader('Content-Type', 'audio/wav');
+            res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+
+            // Create a read stream and pipe it to the response
+            const fileStream = fs.createReadStream(filePath);
+            fileStream.pipe(res);
+
+            // Handle errors on the stream
+            fileStream.on('error', (error) => {
+                console.error(`Error streaming audio file ${filename}:`, error);
+                if (!res.headersSent) {
+                    handleServiceResponse(
+                        ServiceResponse.failure("Error streaming audio file", error, StatusCodes.INTERNAL_SERVER_ERROR),
+                        res
+                    );
+                }
+            });
+        } catch (error) {
+            console.error(`Error serving audio file:`, error);
+            return handleServiceResponse(
+                ServiceResponse.failure("Error serving audio file", error, StatusCodes.INTERNAL_SERVER_ERROR),
+                res
+            );
+        }
+    };
+
 }
 
 

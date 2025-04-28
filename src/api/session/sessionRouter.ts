@@ -154,6 +154,45 @@ sessionEventRegistry.registerSecurePath({
 
 sessionEventRegistry.registerSecurePath({
   method: "get",
+  path: "/api/event/audio/:filename",
+  tags: ["SessionEvent"],
+  parameters: [
+    {
+      name: "filename",
+      in: "path",
+      description: "The filename of the audio file to retrieve",
+      required: true,
+      schema: {
+        type: "string"
+      }
+    }
+  ],
+  responses: {
+    "200": {
+      description: "Audio file stream",
+      content: {
+        "audio/wav": {
+          schema: {
+            type: "string",
+            format: "binary"
+          }
+        }
+      }
+    },
+    "400": {
+      description: "Invalid filename"
+    },
+    "404": {
+      description: "Audio file not found"
+    },
+    "500": {
+      description: "Server error"
+    }
+  }
+});
+
+sessionEventRegistry.registerSecurePath({
+  method: "get",
   path: "/api/event/stats",
   tags: ["SessionEvent"],
   responses: createApiResponse(SessionStatsResponseSchema, "Session Statistics Retrieved"),
@@ -182,6 +221,7 @@ sessionEventRouter.get("/job/:jobId", passport.authenticate("jwt", { session: fa
 sessionEventRouter.get("/topics", passport.authenticate("jwt", { session: false }), sessionEventController.getDistinctTopics);
 sessionEventRouter.get("/stats", passport.authenticate("jwt", { session: false }), sessionEventController.getSessionStats);
 sessionEventRouter.get("/destnumbers", passport.authenticate("jwt", { session: false }), sessionEventController.getDistinctDestNumbers);
+sessionEventRouter.get("/audio/:filename", passport.authenticate("jwt", { session: false }), sessionEventController.getAudioFile);
 sessionEventRouter.get("/:id", passport.authenticate("jwt", { session: false }), sessionEventController.getSessionEventById);
 sessionEventRouter.get("/", passport.authenticate("jwt", { session: false }), sessionEventController.getSessions);
 sessionEventRouter.post("/sessionReceived", basicAuthMiddleware, sessionEventController.createSessionEvent);
