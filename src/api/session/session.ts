@@ -152,6 +152,9 @@ export class SessionEventController {
             let params: any[] = [];
             let paramIndex = 1;
 
+            // Only show fully processed sessions (with transcription data)
+            whereConditions.push(`transcription IS NOT NULL`);
+
             if (emotion) {
                 whereConditions.push(`emotion = $${paramIndex}`);
                 params.push(emotion);
@@ -270,6 +273,33 @@ export class SessionEventController {
                     ? Object.values(event.topic)[0]
                     : ""
             }));
+
+            // Add an additional check for empty results
+            if (formattedSessions.length === 0) {
+                return handleServiceResponse(
+                    ServiceResponse.success(
+                        "No processed session events found",
+                        {
+                            data: [],
+                            pagination: {
+                                currentPage: 1,
+                                totalPages: 0,
+                                totalItems: 0,
+                                limit,
+                                hasNextPage: false,
+                                hasPrevPage: false,
+                                appliedFilters: {
+                                    emotion: emotion || null,
+                                    category: category || null,
+                                    topic: topic || null,
+                                    destNumber: destNumber || null
+                                }
+                            }
+                        }
+                    ),
+                    res
+                );
+            }
 
             // Create pagination metadata
             const totalPages = Math.ceil(totalCount / limit);
