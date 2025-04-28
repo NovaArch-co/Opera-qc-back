@@ -214,7 +214,35 @@ export class SessionEventController {
 
             // 🛠 Prisma Raw Query to fetch paginated sessions with filters
             const dataQuery = `
-                SELECT * FROM "SessionEvent"
+                SELECT 
+                    id,
+                    level,
+                    time,
+                    pid,
+                    hostname,
+                    name,
+                    type,
+                    source_channel AS "sourceChannel",
+                    source_number AS "sourceNumber",
+                    queue,
+                    dest_channel AS "destChannel",
+                    dest_number AS "destNumber",
+                    date,
+                    duration,
+                    filename,
+                    "incommingfileUrl",
+                    "outgoingfileUrl",
+                    msg,
+                    transcription,
+                    explanation,
+                    category,
+                    topic,
+                    emotion,
+                    "keyWords",
+                    "routinCheckStart",
+                    "routinCheckEnd",
+                    "forbiddenWords"
+                FROM "SessionEvent"
                 ${whereClause}
                 ORDER BY date DESC
                 LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
