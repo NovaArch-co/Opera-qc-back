@@ -573,12 +573,11 @@ export class SessionEventController {
         try {
             console.log("Fetching distinct categories...");
 
-            // Query to extract distinct keys from the topic JSON field
-            // Added check for jsonb_typeof to ensure topic is a JSON object
+            // Query to get distinct categories from the category field
             const query = `
-                SELECT DISTINCT jsonb_object_keys(topic) AS category
+                SELECT DISTINCT category
                 FROM "SessionEvent"
-                WHERE topic IS NOT NULL AND jsonb_typeof(topic) = 'object'
+                WHERE category IS NOT NULL AND TRIM(category) != ''
                 ORDER BY category
             `;
 
