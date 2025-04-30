@@ -168,13 +168,7 @@ export class SessionEventController {
             }
 
             if (category) {
-                // For topic filtering, we need to check if the topic JSON contains the category as a key
-                // Ensure topic is a JSON object before checking for keys
-                whereConditions.push(`(
-                    topic IS NOT NULL 
-                    AND jsonb_typeof(topic) = 'object'
-                    AND topic ? $${paramIndex}
-                )`);
+                whereConditions.push(`category = $${paramIndex}`);
                 params.push(category);
                 paramIndex++;
             }
