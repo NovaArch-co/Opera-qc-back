@@ -12,7 +12,7 @@ import path from "node:path";
 import fs from "node:fs";
 import { downloadAndSaveAudio } from "@/common/utils/downloadFileStream";
 import FormData from "form-data";
-import axios from "axios"; // ✅ Make sure you are using `form-data` package
+import axios from "axios"; 
 import { addSequentialJob } from "@/queue/sequentialQueue";
 
 const sessionQueue = new Queue(env.BULL_QUEUE, {

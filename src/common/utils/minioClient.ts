@@ -2,7 +2,7 @@ import { Client } from "minio";
 
 const minioClient = new Client({
   endPoint: "87.248.156.130",
-  port: 9000,
+  port: 9005,
   useSSL: false,
   accessKey: "admin",
   secretKey: "1234!@#$2025",

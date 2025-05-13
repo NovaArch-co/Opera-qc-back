@@ -19,7 +19,7 @@ services:
       MINIO_ACCESS_KEY: minioaccesskey
       MINIO_SECRET_KEY: miniosecretkey
     ports:
-      - "9000:9000"
+      - "9005:9005"
       - "9001:9001"
     volumes:
       - minio_data:/data
@@ -70,8 +70,8 @@ services:
       - FILE_SERVER_BASE_URL=http://192.168.1.115/tmp/two-channel/stream-audio-incoming.php?recfile=
       - AUDIO_DIR=/home/afeai/conversations
       - MINIO_ENDPOINT=minio
-      - MINIO_ENDPOINT_UTL=http://minio:9000
-      - MINIO_PORT=9000
+      - MINIO_ENDPOINT_UTL=http://minio:9005
+      - MINIO_PORT=9005
       - MINIO_ACCESS_KEY=minioaccesskey
       - MINIO_SECRET_KEY=miniosecretkey
       - JWT_SECRET=${JWT_SECRET:-your-secret-key}
