@@ -1,11 +1,12 @@
 import { Client } from "minio";
+import { env } from "./envConfig";
 
 const minioClient = new Client({
-  endPoint: "87.248.156.130",
+  endPoint: process.env.MINIO_ENDPOINT || env.MINIO_ENDPOINT_UTL?.replace(/^https?:\/\//, "") || "minio",
   port: 9005,
   useSSL: false,
-  accessKey: "admin",
-  secretKey: "1234!@#$2025",
+  accessKey: process.env.MINIO_ACCESS_KEY || env.MINIO_ACCESS_KEY || "minioaccesskey",
+  secretKey: process.env.MINIO_SECRET_KEY || env.MINIO_SECRET_KEY || "miniosecretkey",
 });
 
 export const ensureBucketExists = async (bucketName: string) => {
