@@ -12,7 +12,7 @@ import path from "node:path";
 import fs from "node:fs";
 import { downloadAndSaveAudio } from "@/common/utils/downloadFileStream";
 import FormData from "form-data";
-import axios from "axios"; 
+import axios from "axios";
 import { addSequentialJob } from "@/queue/sequentialQueue";
 
 const sessionQueue = new Queue(env.BULL_QUEUE, {
@@ -1030,8 +1030,8 @@ export class SessionEventController {
 
 // Export the functions that will be used by the queue worker
 export const sendAudioRequests = async (fileName: string, type: "incoming" | "outgoing", filePath: string) => {
-    const username = "FaraErtebat";
-    const password = "Goz@r!AsreFar@Erteb@t!1403";
+    const username = "Tipax";
+    const password = "Goz@r!SimotelTip@x!1404";
     const auth = {
         username,
         password,

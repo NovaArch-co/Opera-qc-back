@@ -67,7 +67,7 @@ services:
       - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
       - REDIS_HOST=redis
       - REDIS_PORT=6379
-      - FILE_SERVER_BASE_URL=http://192.168.1.115/tmp/two-channel/stream-audio-incoming.php?recfile=
+      - FILE_SERVER_BASE_URL=http://94.182.56.132/tmp/two-channel/stream-audio-incoming.php?recfile=
       - AUDIO_DIR=/app/conversations
       - MINIO_ENDPOINT=minio
       - MINIO_ENDPOINT_UTL=http://minio:9000

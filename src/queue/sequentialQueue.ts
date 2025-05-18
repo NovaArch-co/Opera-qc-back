@@ -152,8 +152,8 @@ async function processSessionJob(jobData: any) {
 
         // Basic auth credentials for file server
         const auth = {
-            username: "FaraErtebat",
-            password: "Goz@r!AsreFar@Erteb@t!1403"
+            username: "Tipax",
+            password: "Goz@r!SimotelTip@x!1404"
         };
 
         // Download audio file from file server
@@ -161,8 +161,8 @@ async function processSessionJob(jobData: any) {
 
         // Use different base URLs based on the call type
         const fileServerBaseUrl = type === 'incoming'
-            ? env.FILE_SERVER_BASE_URL
-            : 'http://192.168.1.115/tmp/two-channel/stream-audio-outgoing.php?recfile=';
+            ? `http://94.182.56.132/tmp/two-channel/stream-audio-incoming.php?recfile=`
+            : `http://94.182.56.132/tmp/two-channel/stream-audio-outgoing.php?recfile=`;
 
         // Download customer file (-in)
         const customerFileUrl = `${fileServerBaseUrl}${baseFileName}-in`;
