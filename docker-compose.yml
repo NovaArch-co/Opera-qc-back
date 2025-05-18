@@ -68,17 +68,17 @@ services:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - FILE_SERVER_BASE_URL=http://192.168.1.115/tmp/two-channel/stream-audio-incoming.php?recfile=
-      - AUDIO_DIR=/home/afeai/conversations
+      - AUDIO_DIR=/app/conversations
       - MINIO_ENDPOINT=minio
-      - MINIO_ENDPOINT_UTL=http://minio:9005
-      - MINIO_PORT=9005
+      - MINIO_ENDPOINT_UTL=http://minio:9000
+      - MINIO_PORT=9000
       - MINIO_ACCESS_KEY=minioaccesskey
       - MINIO_SECRET_KEY=miniosecretkey
       - JWT_SECRET=${JWT_SECRET:-your-secret-key}
       - JWT_EXPIRES_IN=${JWT_EXPIRES_IN:-1d}
       - CORS_ORIGIN=${CORS_ORIGIN:-http://localhost:3000,http://localhost:5173,http://5.202.171.177:8082}
     volumes:
-      - /home/afeai/conversations:/home/afeai/conversations:ro
+      - ./conversations:/app/conversations:ro
     depends_on:
       postgres:
         condition: service_healthy
