@@ -31,9 +31,9 @@ services:
     image: docker.arvancloud.ir/bitnami/postgresql:17.2.0
     container_name: postgres
     environment:
-      POSTGRES_DB: ${POSTGRES_DB}
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRESQL_DATABASE: ${POSTGRES_DB}
+      POSTGRESQL_USERNAME: ${POSTGRES_USER}
+      POSTGRESQL_PASSWORD: ${POSTGRES_PASSWORD}
       ALLOW_EMPTY_PASSWORD: "yes"
     ports:
       - "5432:5432"
