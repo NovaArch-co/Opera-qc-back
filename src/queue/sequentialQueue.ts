@@ -79,6 +79,9 @@ export const sequentialWorker = new Worker(
                 case 'process-session':
                     return await processSessionJob(data);
 
+                case 'process-uploaded-session':
+                    return await processUploadedSessionJob(data);
+
                 case 'analyze-audio':
                     return await analyzeAudioJob(data);
 
@@ -265,6 +268,111 @@ async function processSessionJob(jobData: any) {
         };
     } catch (error) {
         console.error("Error processing session:", error);
+        throw error;
+    }
+}
+
+// Processing function for uploaded session jobs (bypasses downloading)
+async function processUploadedSessionJob(jobData: any) {
+    try {
+        const {
+            type,
+            sourceChannel,
+            sourceNumber,
+            queue,
+            destChannel,
+            destNumber,
+            date,
+            duration,
+            customerFilePath,
+            agentFilePath,
+            originalCustomerName,
+            originalAgentName,
+            filename
+        } = jobData;
+
+        console.log("Processing uploaded session job with data:", jobData);
+
+        // Handle cases where fields might be undefined
+        const sourceChannelValue = sourceChannel || "";
+        const sourceNumberValue = sourceNumber || "";
+        const destChannelValue = destChannel || "";
+        const destNumberValue = destNumber || "";
+        const queueValue = queue || "";
+
+        // Read the uploaded files to get buffers for MinIO upload
+        const customerAudioBuffer = fs.readFileSync(customerFilePath);
+        const agentAudioBuffer = fs.readFileSync(agentFilePath);
+
+        // Generate unique keys for MinIO using the provided filename
+        const customerKey = `${filename}-customer.wav`;
+        const agentKey = `${filename}-agent.wav`;
+
+        // Ensure bucket exists before uploading
+        await ensureBucketExists();
+
+        // Upload customer file to MinIO
+        await s3Client.send(
+            new PutObjectCommand({
+                Bucket: BUCKET_NAME,
+                Key: customerKey,
+                Body: customerAudioBuffer,
+                ContentType: 'audio/wav'
+            })
+        );
+        console.log("Uploaded customer file to MinIO:", customerKey);
+
+        // Upload agent file to MinIO
+        await s3Client.send(
+            new PutObjectCommand({
+                Bucket: BUCKET_NAME,
+                Key: agentKey,
+                Body: agentAudioBuffer,
+                ContentType: 'audio/wav'
+            })
+        );
+        console.log("Uploaded agent file to MinIO:", agentKey);
+
+        // Create session event in database
+        const sessionEvent = await prisma.sessionEvent.create({
+            data: {
+                level: 30, // Default log level (info)
+                time: new Date().toISOString(),
+                pid: process.pid,
+                hostname: os.hostname(),
+                name: "SESSION_EVENT",
+                msg: `Uploaded files processed: ${originalCustomerName}, ${originalAgentName}`,
+                type,
+                sourceChannel: sourceChannelValue,
+                sourceNumber: sourceNumberValue,
+                queue: queueValue,
+                destChannel: destChannelValue,
+                destNumber: destNumberValue,
+                date: new Date(date),
+                duration,
+                filename,
+                keyWords: [] // Initialize with empty array
+            }
+        });
+
+        console.log("Created session event:", sessionEvent);
+
+        // Now add a job to analyze the audio (this will be picked up next in sequence)
+        await addSequentialJob('analyze-audio', {
+            sessionEventId: sessionEvent.id,
+            customerFilePath,
+            agentFilePath,
+            filename
+        });
+
+        // Clean up resources for this part (but keep files for analysis)
+        return {
+            success: true,
+            sessionEventId: sessionEvent.id,
+            message: "Uploaded session processing completed, analysis queued"
+        };
+    } catch (error) {
+        console.error("Error processing uploaded session:", error);
         throw error;
     }
 }

@@ -1,8 +1,25 @@
 import express from "express";
 import { SequentialJobController } from "./sequentialController";
+import multer from "multer";
 
 export const sequentialRouter = express.Router();
 const sequentialJobController = new SequentialJobController();
+
+// Configure multer for file uploads - store files in memory as buffer
+const upload = multer({
+    storage: multer.memoryStorage(),
+    limits: {
+        fileSize: 100 * 1024 * 1024, // 100MB limit per file
+    },
+    fileFilter: (req, file, cb) => {
+        // Accept audio files
+        if (file.mimetype.startsWith('audio/')) {
+            cb(null, true);
+        } else {
+            cb(new Error('Only audio files are allowed'));
+        }
+    }
+});
 
 /**
  * @openapi
@@ -37,6 +54,71 @@ const sequentialJobController = new SequentialJobController();
  *         description: Server error
  */
 sequentialRouter.post("/jobs", sequentialJobController.addJob);
+
+/**
+ * @openapi
+ * /api/sequential/jobs/upload:
+ *   post:
+ *     tags:
+ *       - Sequential Jobs
+ *     summary: Upload customer and agent audio files for sequential processing
+ *     description: Upload audio files directly and start sequential processing without downloading
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - customer
+ *               - agent
+ *             properties:
+ *               customer:
+ *                 type: string
+ *                 format: binary
+ *                 description: Customer audio file (wav, mp3, etc.)
+ *               agent:
+ *                 type: string
+ *                 format: binary
+ *                 description: Agent audio file (wav, mp3, etc.)
+ *               type:
+ *                 type: string
+ *                 description: Call type (default "uploaded")
+ *                 default: uploaded
+ *               sourceChannel:
+ *                 type: string
+ *                 description: Source channel
+ *               sourceNumber:
+ *                 type: string
+ *                 description: Source phone number
+ *               queue:
+ *                 type: string
+ *                 description: Queue name
+ *               destChannel:
+ *                 type: string
+ *                 description: Destination channel
+ *               destNumber:
+ *                 type: string
+ *                 description: Destination phone number
+ *               duration:
+ *                 type: number
+ *                 description: Call duration in seconds
+ *               date:
+ *                 type: string
+ *                 format: date-time
+ *                 description: Call date and time
+ *     responses:
+ *       200:
+ *         description: Files uploaded and processing started successfully
+ *       400:
+ *         description: Bad request - missing files or invalid file types
+ *       500:
+ *         description: Server error
+ */
+sequentialRouter.post("/jobs/upload", upload.fields([
+    { name: 'customer', maxCount: 1 },
+    { name: 'agent', maxCount: 1 }
+]), sequentialJobController.addJobWithFiles);
 
 /**
  * @openapi
