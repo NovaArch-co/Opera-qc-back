@@ -58,7 +58,11 @@ services:
       - "5555:5555"
     environment:
       - NODE_ENV=development
+      - HOST=0.0.0.0
       - PORT=8081
+      - SWAGGER_URL=${SWAGGER_URL:-https://qc.novaarchai.com}
+      - COMMON_RATE_LIMIT_MAX_REQUESTS=${COMMON_RATE_LIMIT_MAX_REQUESTS:-1000}
+      - COMMON_RATE_LIMIT_WINDOW_MS=${COMMON_RATE_LIMIT_WINDOW_MS:-1000}
       - POSTGRES_HOST=postgres
       - POSTGRES_PORT=5432
       - POSTGRES_DB=${POSTGRES_DB}
@@ -67,6 +71,7 @@ services:
       - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
       - REDIS_HOST=redis
       - REDIS_PORT=6379
+      - BULL_QUEUE=${BULL_QUEUE:-analyseCalls}
       - FILE_SERVER_BASE_URL=http://94.182.56.132/tmp/two-channel/stream-audio-incoming.php?recfile=
       - AUDIO_DIR=/app/conversations
       - MINIO_ENDPOINT=minio
@@ -75,6 +80,7 @@ services:
       - MINIO_ACCESS_KEY=minioaccesskey
       - MINIO_SECRET_KEY=miniosecretkey
       - JWT_SECRET=${JWT_SECRET:-your-secret-key}
+      - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET:-your-refresh-secret-key}
       - JWT_EXPIRES_IN=${JWT_EXPIRES_IN:-1d}
       - CORS_ORIGIN=${CORS_ORIGIN:-http://localhost:3000,http://localhost:5173,http://5.202.171.177:8082}
     volumes:
