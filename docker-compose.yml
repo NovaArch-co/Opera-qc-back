@@ -28,7 +28,7 @@ services:
       - app-network
 
   postgres:
-    image: docker.arvancloud.ir/bitnami/postgresql:17.2.0
+    image: bitnami/postgresql:17.2.0
     container_name: postgres
     environment:
       POSTGRESQL_DATABASE: ${POSTGRES_DB}
