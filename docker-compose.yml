@@ -19,8 +19,8 @@ services:
       MINIO_ACCESS_KEY: minioaccesskey
       MINIO_SECRET_KEY: miniosecretkey
     ports:
-      - "9005:9005"
-      - "9006:9006"
+      - "9005:9000"  
+      - "9006:9001" 
     volumes:
       - minio_data:/data
     command: server /data --console-address ":9006"
