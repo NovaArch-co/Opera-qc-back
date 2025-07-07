@@ -3,13 +3,15 @@ import { OpenApiGeneratorV3, OpenAPIRegistry } from "@asteasolutions/zod-to-open
 import { authRegistry } from "@/api/auth/authRouter";
 import { userRegistry } from "@/api/user/userRouter";
 import { sessionEventRegistry } from "@/api/session/sessionRouter";
+import { audioRegistry } from "@/api/audio/audioRouter";
 import { env } from "@/common/utils/envConfig";
 
 export function generateOpenAPIDocument() {
     const registry = new OpenAPIRegistry([
         userRegistry,
         authRegistry,
-        sessionEventRegistry
+        sessionEventRegistry,
+        audioRegistry
     ]);
     const generator = new OpenApiGeneratorV3(registry.definitions);
 
