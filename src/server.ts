@@ -72,7 +72,7 @@ app.use("/api/users", passport.authenticate("jwt", { session: false }), userRout
 // app.use("/api/sessions", passport.authenticate("jwt", { session: false }), sessionEventRouter);
 app.use("/api/event", sessionEventRouter);
 app.use("/api/sequential", sequentialRouter);
-app.use("/api/audio", passport.authenticate("jwt", { session: false }), audioRouter);
+app.use("/api/audio", audioRouter); // Basic auth is handled within the router
 // Swagger UI
 app.use("/api/docs", openAPIRouter);
 app.use(helmet());
@@ -81,11 +81,11 @@ app.use(helmet());
 app.use(errorHandler());
 
 // Initialize queue worker
-sessionWorker.on('completed', (job) => {
+sessionWorker.on('completed', (job: any) => {
     console.log(`Job ${job.id} completed successfully`);
 });
 
-sessionWorker.on('failed', (job, err) => {
+sessionWorker.on('failed', (job: any, err: any) => {
     console.error(`Job ${job?.id} failed with error:`, err);
 });
 

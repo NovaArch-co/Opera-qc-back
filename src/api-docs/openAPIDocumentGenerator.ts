@@ -13,6 +13,21 @@ export function generateOpenAPIDocument() {
         sessionEventRegistry,
         audioRegistry
     ]);
+
+    // Register security schemes
+    registry.registerComponent("securitySchemes", "basicAuth", {
+        type: "http",
+        scheme: "basic",
+        description: "Basic authentication for audio API"
+    });
+
+    registry.registerComponent("securitySchemes", "bearerAuth", {
+        type: "http",
+        scheme: "bearer",
+        bearerFormat: "JWT",
+        description: "JWT authentication for protected endpoints"
+    });
+
     const generator = new OpenApiGeneratorV3(registry.definitions);
 
     return generator.generateDocument({
@@ -25,7 +40,8 @@ export function generateOpenAPIDocument() {
             url: "https://qc.novaarchai.com",
             description: "dev"
         }],
-        // security: [{ [bearerAuth.name]: [] }],
+        // Default security is JWT for most endpoints
+        security: [{ bearerAuth: [] }],
         externalDocs: {
             description: "View the raw OpenAPI AS JSON",
             url: "https://qc.novaarchai.com/api/docs/api/swagger.json",
