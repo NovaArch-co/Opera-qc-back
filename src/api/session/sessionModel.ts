@@ -1,7 +1,7 @@
-import {extendZodWithOpenApi} from "@asteasolutions/zod-to-openapi";
-import {z} from "zod";
+import { extendZodWithOpenApi } from "@asteasolutions/zod-to-openapi";
+import { z } from "zod";
 
-import {commonValidations} from "@/common/utils/commonValidation";
+import { commonValidations } from "@/common/utils/commonValidation";
 
 extendZodWithOpenApi(z);
 
@@ -56,32 +56,31 @@ export const CreateSessionEventSchema = z.object({
     msg: z.string(),
 });
 
-const TranscriptionSegmentSchema = z.object({
-    start: z.number(),
-    end: z.number(),
-    speaker: z.string(),
-    text: z.string(),
-});
-
+// Updated to match the new process API response format
 export const TranscriptionResponseSchema = z.object({
-    wav_customer: z.array(TranscriptionSegmentSchema),
+    transcription: z.object({
+        Agent: z.string(),
+        Customer: z.string()
+    }),
+    analysis: z.object({
+        explanation: z.array(z.string()),
+        topic: z.array(z.string())
+    }).optional()
 });
 
 export type TranscriptionResponse = z.infer<typeof TranscriptionResponseSchema>;
 
+// Updated to match the new process API response format
 export const AnalysisResponseSchema = z.object({
+    transcription: z.object({
+        Agent: z.string(),
+        Customer: z.string()
+    }),
     analysis: z.object({
         explanation: z.array(z.string()),
-        category: z.array(z.string()),
-        topic: z.record(z.string(), z.string()),
-        emotion: z.array(z.string()),
-        key_words: z.array(z.string()),
-        routin_check_start: z.array(z.string()),
-        routin_check_end: z.array(z.string()),
-        forbidden_words: z.record(z.string(), z.number()), // Changed to record with number values
+        topic: z.array(z.string())
     })
 });
-
 
 export type AnalysisResponse = z.infer<typeof AnalysisResponseSchema>;
 
@@ -109,10 +108,10 @@ export const CreateSessionEventResponseSchema = z.object({
     transcription: TranscriptionResponseSchema.optional(),
     explanation: z.string().nullable().openapi({ example: "مکالمۀ یک مرکز تماس شامل گفتگوی بین نماینده و مشتری است..." }),
     category: z.string().nullable().openapi({ example: "سوالی" }),
-    topic: z.record(z.string(), z.string()).nullable().openapi({ example: { "پنل": "ویرایش اشتباه" } }),
+    topic: z.array(z.string()).nullable().openapi({ example: ["101"] }), // Updated to match new format
     emotion: z.string().nullable().openapi({ example: "ناراحت" }),
     keyWords: z.array(z.string()).nullable().openapi({ example: ["شماره", "وارد", "مشتری", "برنامه", "دیدن"] }),
-    forbiddenWords: z.array(z.string()).nullable().openapi({ example: ["آهان", "آره", "خانمم"] }),
+    forbiddenWords: z.record(z.string(), z.number()).nullable().openapi({ example: { "آهان": 2, "آره": 1 } }),
     routinCheckStart: z.string().nullable().openapi({ example: "0" }),
     routinCheckEnd: z.string().nullable().openapi({ example: "0" }),
 });

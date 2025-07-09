@@ -187,54 +187,43 @@ export const sessionWorker = new Worker(
                 console.log("Process Result:", processResult);
 
                 if (processResult) {
-                    // The analysis is already included in the process result
-                    const analysisResult = await sendToAnalysisAPI(processResult);
-                    console.log("Analysis Result:", analysisResult);
+                    // The analysis is now included directly in the process result
+                    console.log("Process completed successfully");
 
-                    if (analysisResult) {
-                        console.log("Process completed successfully");
-
-                        // Parse and validate the transcription and analysis results
-                        const parsedTranscription = TranscriptionResponseSchema.safeParse(processResult);
-                        if (!parsedTranscription.success) {
-                            console.error("Invalid Transcription Data:", parsedTranscription.error.format());
-                        } else {
-                            console.log("✅ Valid Transcription Data:", parsedTranscription);
-                        }
-
-                        const parsedAnalysis = AnalysisResponseSchema.safeParse(analysisResult);
-                        if (!parsedAnalysis.success) {
-                            console.error("Invalid Analysis Data:", parsedAnalysis.error.format());
-                        } else {
-                            console.log("✅ Valid Analysis Data:", parsedAnalysis.data);
-                        }
-
-                        // Extract the data if validation was successful
-                        const parsedTranscriptionData = parsedTranscription.success ? parsedTranscription.data : null;
-                        const parsedAnalysisData = parsedAnalysis.success ? parsedAnalysis.data?.analysis : null;
-
-                        if (parsedTranscriptionData && parsedAnalysisData) {
-                            // Update the session event with the analysis results
-                            const updatedSessionEvent = await prisma.sessionEvent.update({
-                                where: { id: sessionEvent.id },
-                                data: {
-                                    incommingfileUrl: `/${BUCKET_NAME}/${filename}-in.wav`,
-                                    outgoingfileUrl: `/${BUCKET_NAME}/${filename}-out.wav`,
-                                    transcription: parsedTranscriptionData,
-                                    explanation: parsedAnalysisData.explanation?.[0] || null,
-                                    category: parsedAnalysisData.category?.[0] || null,
-                                    topic: parsedAnalysisData.topic || null,
-                                    emotion: parsedAnalysisData.emotion?.[0] || null,
-                                    keyWords: Array.isArray(parsedAnalysisData.key_words) ? parsedAnalysisData.key_words : [],
-                                    routinCheckStart: parsedAnalysisData.routin_check_start?.[0] || null,
-                                    routinCheckEnd: parsedAnalysisData.routin_check_end?.[0] || null,
-                                    forbiddenWords: parsedAnalysisData.forbidden_words ? parsedAnalysisData.forbidden_words : {},
-                                }
-                            });
-
-                            console.log("Updated session event with analysis results:", updatedSessionEvent.id);
-                        }
+                    // Parse and validate the process result
+                    const parsedProcess = TranscriptionResponseSchema.safeParse(processResult);
+                    if (!parsedProcess.success) {
+                        console.error("Invalid Process Data:", parsedProcess.error.format());
+                    } else {
+                        console.log("✅ Valid Process Data");
                     }
+
+                    // Extract the data
+                    const transcriptionData = processResult.transcription;
+                    const analysisData = processResult.analysis || {};
+
+                    // Update the session event with the processed data
+                    const updatedSessionEvent = await prisma.sessionEvent.update({
+                        where: { id: sessionEvent.id },
+                        data: {
+                            incommingfileUrl: `/${BUCKET_NAME}/${filename}-in.wav`,
+                            outgoingfileUrl: `/${BUCKET_NAME}/${filename}-out.wav`,
+                            transcription: processResult,
+                            explanation: analysisData.explanation?.[0] || null,
+                            topic: analysisData.topic || null,
+                            // Set other fields to null/defaults since they're not in the new format
+                            category: null,
+                            emotion: null,
+                            keyWords: [],
+                            routinCheckStart: null,
+                            routinCheckEnd: null,
+                            forbiddenWords: {}
+                        }
+                    });
+
+                    console.log(`Session event ${sessionEvent.id} updated with transcription and analysis data`);
+                } else {
+                    console.error("Process API failed to return results");
                 }
             } catch (processingError) {
                 console.error("Error in post-processing:", processingError);

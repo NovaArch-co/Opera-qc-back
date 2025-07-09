@@ -291,140 +291,62 @@ async function analyzeAudioJob(jobData: any) {
         // The sendToAnalysisAPI now just returns the same processResult since analysis is included
         const analysisResult = await sendToAnalysisAPI(processResult);
 
-        // Normalize the analysis result to ensure it matches our schema
-        if (analysisResult.analysis) {
-            const analysis = analysisResult.analysis;
-
-            // Convert string values to arrays if they are not already arrays
-            if (analysis.explanation && !Array.isArray(analysis.explanation)) {
-                analysis.explanation = [analysis.explanation];
-            }
-
-            if (analysis.category && !Array.isArray(analysis.category)) {
-                analysis.category = [analysis.category];
-            }
-
-            if (analysis.emotion && !Array.isArray(analysis.emotion)) {
-                analysis.emotion = [analysis.emotion];
-            }
-
-            if (analysis.routin_check_start !== undefined && !Array.isArray(analysis.routin_check_start)) {
-                analysis.routin_check_start = [String(analysis.routin_check_start)];
-            }
-
-            if (analysis.routin_check_end !== undefined && !Array.isArray(analysis.routin_check_end)) {
-                analysis.routin_check_end = [String(analysis.routin_check_end)];
-            }
-
-            // Ensure key_words is always an array
-            if (analysis.key_words && !Array.isArray(analysis.key_words)) {
-                analysis.key_words = [analysis.key_words];
-            }
-
-            // Ensure forbidden_words is always an object
-            if (!analysis.forbidden_words) {
-                analysis.forbidden_words = {};
-            }
-        }
-
-        // Parse and validate the transcription and analysis results
-        const parsedTranscription = TranscriptionResponseSchema.safeParse(processResult);
-        if (!parsedTranscription.success) {
-            console.error("Invalid Transcription Data:", parsedTranscription.error.format());
+        // Parse and validate the process result against our schema
+        const parsedProcess = TranscriptionResponseSchema.safeParse(processResult);
+        if (!parsedProcess.success) {
+            console.error("Invalid Process Data:", parsedProcess.error.format());
             return {
                 success: false,
-                error: "Invalid transcription data"
+                error: "Invalid process data"
             };
         }
 
-        const parsedAnalysis = AnalysisResponseSchema.safeParse(analysisResult);
-        if (!parsedAnalysis.success) {
-            console.error("Invalid Analysis Data:", parsedAnalysis.error.format());
-            console.log("Normalized Analysis Data:", JSON.stringify(analysisResult));
+        // Now update the session event with the process results
+        try {
+            const transcriptionData = processResult.transcription;
+            const analysisData = processResult.analysis || {};
 
-            // Even if validation fails, we'll try to use the data we have
-            // This is a fallback to make sure we don't lose the analysis data
-            try {
-                const transcriptionData = parsedTranscription.data;
-                const analysisData = analysisResult.analysis;
-
-                // Update the session event with the raw analysis results
-                const updatedSessionEvent = await prisma.sessionEvent.update({
-                    where: { id: sessionEventId },
-                    data: {
-                        incommingfileUrl: `/${BUCKET_NAME}/${filename}-in.wav`,
-                        outgoingfileUrl: `/${BUCKET_NAME}/${filename}-out.wav`,
-                        transcription: transcriptionData,
-                        explanation: Array.isArray(analysisData.explanation) ? analysisData.explanation[0] : analysisData.explanation,
-                        category: Array.isArray(analysisData.category) ? analysisData.category[0] : analysisData.category,
-                        topic: analysisData.topic || null,
-                        emotion: Array.isArray(analysisData.emotion) ? analysisData.emotion[0] : analysisData.emotion,
-                        keyWords: Array.isArray(analysisData.key_words) ? analysisData.key_words : [],
-                        routinCheckStart: Array.isArray(analysisData.routin_check_start)
-                            ? analysisData.routin_check_start[0]
-                            : String(analysisData.routin_check_start),
-                        routinCheckEnd: Array.isArray(analysisData.routin_check_end)
-                            ? analysisData.routin_check_end[0]
-                            : String(analysisData.routin_check_end),
-                        forbiddenWords: analysisData.forbidden_words || {},
-                    }
-                });
-
-                console.log("Updated session event with raw analysis results:", updatedSessionEvent.id);
-
-                return {
-                    success: true,
-                    sessionEventId,
-                    message: "Audio analysis completed with validation warnings"
-                };
-            } catch (fallbackError) {
-                console.error("Error in fallback analysis update:", fallbackError);
-                return {
-                    success: false,
-                    error: "Failed to handle analysis data"
-                };
-            }
-        }
-
-        // Extract the data if validation was successful
-        const parsedTranscriptionData = parsedTranscription.data;
-        const parsedAnalysisData = parsedAnalysis.data?.analysis;
-
-        if (parsedTranscriptionData && parsedAnalysisData) {
-            // Update the session event with the analysis results
+            // Update the session event with the data from the process API
             const updatedSessionEvent = await prisma.sessionEvent.update({
                 where: { id: sessionEventId },
                 data: {
                     incommingfileUrl: `/${BUCKET_NAME}/${filename}-in.wav`,
                     outgoingfileUrl: `/${BUCKET_NAME}/${filename}-out.wav`,
-                    transcription: parsedTranscriptionData,
-                    explanation: parsedAnalysisData.explanation?.[0] || null,
-                    category: parsedAnalysisData.category?.[0] || null,
-                    topic: parsedAnalysisData.topic || null,
-                    emotion: parsedAnalysisData.emotion?.[0] || null,
-                    keyWords: Array.isArray(parsedAnalysisData.key_words) ? parsedAnalysisData.key_words : [],
-                    routinCheckStart: parsedAnalysisData.routin_check_start?.[0] || null,
-                    routinCheckEnd: parsedAnalysisData.routin_check_end?.[0] || null,
-                    forbiddenWords: parsedAnalysisData.forbidden_words || {},
+                    transcription: processResult, // Store the complete process result
+                    explanation: analysisData.explanation?.[0] || null,
+                    // These fields might not be present in the new API format, so set them to null/defaults
+                    category: null,
+                    topic: analysisData.topic || null,
+                    emotion: null,
+                    keyWords: [], // No key_words in the new format
+                    routinCheckStart: null,
+                    routinCheckEnd: null,
+                    forbiddenWords: {}, // No forbidden_words in the new format
                 }
             });
 
-            console.log("Updated session event with analysis results:", updatedSessionEvent.id);
-        }
+            console.log("Updated session event with process results:", updatedSessionEvent.id);
 
-        // Clean up temp files
-        try {
-            fs.unlinkSync(customerFilePath);
-            fs.unlinkSync(agentFilePath);
-        } catch (cleanupError) {
-            console.error("Error cleaning up temp files:", cleanupError);
-        }
+            // Clean up temp files
+            try {
+                fs.unlinkSync(customerFilePath);
+                fs.unlinkSync(agentFilePath);
+            } catch (cleanupError) {
+                console.error("Error cleaning up temp files:", cleanupError);
+            }
 
-        return {
-            success: true,
-            sessionEventId,
-            message: "Audio analysis completed successfully"
-        };
+            return {
+                success: true,
+                sessionEventId,
+                message: "Audio analysis completed successfully"
+            };
+        } catch (dbError) {
+            console.error("Error updating database with process results:", dbError);
+            return {
+                success: false,
+                error: "Database update failed"
+            };
+        }
     } catch (error) {
         console.error("Error analyzing audio:", error);
         throw error;
