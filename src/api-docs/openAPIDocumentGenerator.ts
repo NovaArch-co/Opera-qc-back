@@ -30,11 +30,8 @@ export function generateOpenAPIDocument() {
 
     const generator = new OpenApiGeneratorV3(registry.definitions);
 
-    // Use the environment variable for server URL
-    const serverUrl = env.SWAGGER_URL;
-
-    // Extract base URL without path components
-    const baseUrl = serverUrl.replace(/\/[^/]*$/, '').replace(/\/+$/, '');
+    // Fixed server URL - no environment variable
+    const serverUrl = "http://31.184.134.153:8081";
 
     return generator.generateDocument({
         openapi: "3.0.0",
@@ -44,14 +41,9 @@ export function generateOpenAPIDocument() {
             description: "API documentation for the Opera QC backend service"
         },
         servers: [{
-            url: baseUrl,
-            description: "API Server"
+            url: serverUrl,
         }],
         // Default security is JWT for most endpoints
         security: [{ bearerAuth: [] }],
-        externalDocs: {
-            description: "View the raw OpenAPI as JSON",
-            url: `${baseUrl}/api/swagger.json`,
-        },
     });
 }

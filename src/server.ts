@@ -66,17 +66,15 @@ app.use(rateLimiter);
 // Request logging
 app.use(requestLogger);
 
-// API Routes
+// Routes
 app.use("/api/auth", authRouter);
 app.use("/api/users", passport.authenticate("jwt", { session: false }), userRouter);
+// app.use("/api/sessions", passport.authenticate("jwt", { session: false }), sessionEventRouter);
 app.use("/api/event", sessionEventRouter);
 app.use("/api/sequential", sequentialRouter);
 app.use("/api/audio", audioRouter); // Basic auth is handled within the router
-
-// Swagger UI - now mounted at /api to avoid path duplication
-app.use("/api", openAPIRouter);
-
-// Apply helmet after routes to avoid issues with Swagger UI
+// Swagger UI
+app.use("/api/docs", openAPIRouter);
 app.use(helmet());
 
 // Error handlers

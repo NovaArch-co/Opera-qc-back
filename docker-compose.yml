@@ -60,7 +60,7 @@ services:
       - NODE_ENV=development
       - HOST=0.0.0.0
       - PORT=8081
-      - SWAGGER_URL=${SWAGGER_URL:-http://localhost:8081}
+      - SWAGGER_URL=${SWAGGER_URL:-https://qc.novaarchai.com}
       - COMMON_RATE_LIMIT_MAX_REQUESTS=${COMMON_RATE_LIMIT_MAX_REQUESTS:-1000}
       - COMMON_RATE_LIMIT_WINDOW_MS=${COMMON_RATE_LIMIT_WINDOW_MS:-1000}
       - POSTGRES_HOST=postgres

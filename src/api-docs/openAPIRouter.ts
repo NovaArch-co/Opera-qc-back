@@ -14,29 +14,39 @@ openAPIRouter.get("/swagger.json", (_req: Request, res: Response) => {
   res.send(openAPIDocument);
 });
 
+// Swagger UI options to hide servers dropdown
+const swaggerOptions = {
+  swaggerOptions: {
+    displayRequestDuration: true,
+    docExpansion: "none",
+    operationsSorter: 'alpha',
+    tagsSorter: 'alpha',
+    filter: true,
+    plugins: [
+      () => {
+        return {
+          wrapComponents: {
+            servers: () => () => null // This hides the servers dropdown
+          }
+        }
+      }
+    ]
+  }
+};
+
 // Setup Swagger UI
 if (ADMIN_USERNAME && ADMIN_PASSWORD) {
   // If admin credentials are provided, protect Swagger with basic auth
   openAPIRouter.use(
-    "/docs",
+    "/",
     expressBasicAuth({
       users: { [ADMIN_USERNAME]: ADMIN_PASSWORD },
       challenge: true,
     }),
     swaggerUi.serve,
-    swaggerUi.setup(openAPIDocument, {
-      swaggerOptions: {
-        displayRequestDuration: true,
-        docExpansion: "none",
-      }
-    }),
+    swaggerUi.setup(openAPIDocument, swaggerOptions),
   );
 } else {
   // No auth protection for Swagger UI
-  openAPIRouter.use("/docs", swaggerUi.serve, swaggerUi.setup(openAPIDocument, {
-    swaggerOptions: {
-      displayRequestDuration: true,
-      docExpansion: "none",
-    }
-  }));
+  openAPIRouter.use("/", swaggerUi.serve, swaggerUi.setup(openAPIDocument, swaggerOptions));
 }
