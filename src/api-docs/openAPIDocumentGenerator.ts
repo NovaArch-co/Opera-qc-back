@@ -30,21 +30,25 @@ export function generateOpenAPIDocument() {
 
     const generator = new OpenApiGeneratorV3(registry.definitions);
 
+    // Use the SWAGGER_URL from environment variables if available, or default to a localhost URL
+    const serverUrl = env.SWAGGER_URL || "http://localhost:8081";
+
     return generator.generateDocument({
         openapi: "3.0.0",
         info: {
             version: "1.0.0",
-            title: "Swagger API",
+            title: "Opera QC API Documentation",
+            description: "API documentation for the Opera QC backend service"
         },
         servers: [{
-            url: "https://qc.novaarchai.com",
-            description: "dev"
+            url: serverUrl,
+            description: "API Server"
         }],
         // Default security is JWT for most endpoints
         security: [{ bearerAuth: [] }],
         externalDocs: {
-            description: "View the raw OpenAPI AS JSON",
-            url: "https://qc.novaarchai.com/api/docs/api/swagger.json",
+            description: "View the raw OpenAPI as JSON",
+            url: `${serverUrl}/api/docs/swagger.json`,
         },
     });
 }

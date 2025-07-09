@@ -7,12 +7,16 @@ import expressBasicAuth from "express-basic-auth";
 export const openAPIRouter: Router = express.Router();
 const openAPIDocument = generateOpenAPIDocument();
 const { ADMIN_USERNAME, ADMIN_PASSWORD } = process.env;
-openAPIRouter.get("/docs/swagger.json", (_req: Request, res: Response) => {
+
+// JSON endpoint for raw OpenAPI spec
+openAPIRouter.get("/swagger.json", (_req: Request, res: Response) => {
   res.setHeader("Content-Type", "application/json");
   res.send(openAPIDocument);
 });
 
+// Setup Swagger UI
 if (ADMIN_USERNAME && ADMIN_PASSWORD) {
+  // If admin credentials are provided, protect Swagger with basic auth
   openAPIRouter.use(
     "/",
     expressBasicAuth({
@@ -20,8 +24,19 @@ if (ADMIN_USERNAME && ADMIN_PASSWORD) {
       challenge: true,
     }),
     swaggerUi.serve,
-    swaggerUi.setup(openAPIDocument, {}),
+    swaggerUi.setup(openAPIDocument, {
+      swaggerOptions: {
+        displayRequestDuration: true,
+        docExpansion: "none",
+      }
+    }),
   );
 } else {
-  openAPIRouter.use("/swagger", swaggerUi.serveWithOptions({ redirect: false,cacheControl:false }), swaggerUi.setup(openAPIDocument, {}));
+  // No auth protection for Swagger UI
+  openAPIRouter.use("/", swaggerUi.serve, swaggerUi.setup(openAPIDocument, {
+    swaggerOptions: {
+      displayRequestDuration: true,
+      docExpansion: "none",
+    }
+  }));
 }
