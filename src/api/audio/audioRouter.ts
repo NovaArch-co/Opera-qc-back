@@ -24,7 +24,7 @@ audioRegistry.register("AudioQueryParams", AudioQueryParamSchema);
 // Document the API endpoint
 audioRegistry.registerPath({
     method: "get",
-    path: "/audio/sessions", // Remove the /api prefix from the path
+    path: "/api/audio/sessions",
     tags: ["Audio"],
     security: [{ basicAuth: [] }],
     parameters: [

@@ -1,5 +1,5 @@
 import cors from "cors";
-import express, { type Express, type NextFunction, type Request, type Response } from "express";
+import express, { type Express } from "express";
 import helmet from "helmet";
 import { pino } from "pino";
 
@@ -61,31 +61,22 @@ app.use(cors({
     allowedHeaders: ['Content-Type', 'Authorization'],
     credentials: true
 }));
-
-// Add middleware to skip logging for proxied requests (to avoid duplicate logs)
-app.use((req: Request, res: Response, next: NextFunction) => {
-    if (res.locals.proxied) {
-        console.log(`Processing proxied request: ${req.method} ${req.url}`);
-        // Skip further middleware for proxied requests
-        return next();
-    }
-    next();
-});
-
 app.use(rateLimiter);
 
-// Request logging (the requestLogger is already an array of middleware functions)
+// Request logging
 app.use(requestLogger);
 
-// Routes
+// API Routes
 app.use("/api/auth", authRouter);
 app.use("/api/users", passport.authenticate("jwt", { session: false }), userRouter);
-// app.use("/api/sessions", passport.authenticate("jwt", { session: false }), sessionEventRouter);
 app.use("/api/event", sessionEventRouter);
 app.use("/api/sequential", sequentialRouter);
 app.use("/api/audio", audioRouter); // Basic auth is handled within the router
-// Swagger UI
-app.use("/api/docs", openAPIRouter);
+
+// Swagger UI - now mounted at /api to avoid path duplication
+app.use("/api", openAPIRouter);
+
+// Apply helmet after routes to avoid issues with Swagger UI
 app.use(helmet());
 
 // Error handlers

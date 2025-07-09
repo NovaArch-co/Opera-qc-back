@@ -12,7 +12,7 @@ userRegistry.register("User", UserSchema);
 
 userRegistry.registerSecurePath({
   method: "get",
-  path: "/users/me",
+  path: "/api/users/me",
   tags: ["User"],
   responses: createApiResponse(UserSchema, "Success"),
 });

@@ -14,7 +14,7 @@ authRegistry.register("LoginSchema", LoginSchema);
 
 authRegistry.registerPath({
   method: "post",
-  path: "/auth/login",
+  path: "/api/auth/login",
   tags: ["Auth"],
   request: {
     body: {
@@ -32,7 +32,7 @@ authRouter.post("/login", validateBody(LoginSchema), authController.login);
 
 authRegistry.registerPath({
   method: "post",
-  path: "/auth/register",
+  path: "/api/auth/register",
   tags: ["Auth"],
   request: {
     body: {
@@ -53,7 +53,7 @@ authRouter.post("/register", validateBody(RegisterSchema), authController.regist
 
 authRegistry.registerPath({
   method: "post",
-  path: "/auth/verify",
+  path: "/api/auth/verify",
   tags: ["Auth"],
   request: {
     body: {
