@@ -14,6 +14,18 @@ openAPIRouter.get("/swagger.json", (_req: Request, res: Response) => {
   res.send(openAPIDocument);
 });
 
+// Configure Swagger options
+const swaggerOptions = {
+  swaggerOptions: {
+    displayRequestDuration: true,
+    docExpansion: "none",
+    // Fix for API paths
+    url: "/api/docs/swagger.json",
+    // Disable the try-it-out feature to prevent incorrect URLs
+    supportedSubmitMethods: []
+  }
+};
+
 // Setup Swagger UI
 if (ADMIN_USERNAME && ADMIN_PASSWORD) {
   // If admin credentials are provided, protect Swagger with basic auth
@@ -24,19 +36,9 @@ if (ADMIN_USERNAME && ADMIN_PASSWORD) {
       challenge: true,
     }),
     swaggerUi.serve,
-    swaggerUi.setup(openAPIDocument, {
-      swaggerOptions: {
-        displayRequestDuration: true,
-        docExpansion: "none",
-      }
-    }),
+    swaggerUi.setup(openAPIDocument, swaggerOptions),
   );
 } else {
   // No auth protection for Swagger UI
-  openAPIRouter.use("/", swaggerUi.serve, swaggerUi.setup(openAPIDocument, {
-    swaggerOptions: {
-      displayRequestDuration: true,
-      docExpansion: "none",
-    }
-  }));
+  openAPIRouter.use("/", swaggerUi.serve, swaggerUi.setup(openAPIDocument, swaggerOptions));
 }

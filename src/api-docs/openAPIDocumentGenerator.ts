@@ -52,6 +52,6 @@ export function generateOpenAPIDocument() {
         externalDocs: {
             description: "View the raw OpenAPI as JSON",
             url: `${baseUrl}/api/docs/swagger.json`,
-        },
+        }
     });
 }

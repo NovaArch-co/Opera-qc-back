@@ -6,7 +6,7 @@ const sequentialJobController = new SequentialJobController();
 
 /**
  * @openapi
- * /api/sequential/jobs:
+ * /sequential/jobs:
  *   post:
  *     tags:
  *       - Sequential Jobs
@@ -40,7 +40,7 @@ sequentialRouter.post("/jobs", sequentialJobController.addJob);
 
 /**
  * @openapi
- * /api/sequential/jobs/{jobId}/status:
+ * /sequential/jobs/{jobId}/status:
  *   get:
  *     tags:
  *       - Sequential Jobs
@@ -67,7 +67,7 @@ sequentialRouter.get("/jobs/:jobId/status", sequentialJobController.getJobStatus
 
 /**
  * @openapi
- * /api/sequential/jobs:
+ * /sequential/jobs:
  *   get:
  *     tags:
  *       - Sequential Jobs

@@ -28,14 +28,14 @@ const DestNumbersResponseSchema = z.array(z.string());
 
 sessionEventRegistry.registerSecurePath({
   method: "get",
-  path: "/api/event/:id",
+  path: "/event/:id",
   tags: ["SessionEvent"],
   responses: createApiResponse(CreateSessionEventResponseSchema, "Success"),
 });
 
 sessionEventRegistry.registerSecurePath({
   method: "get",
-  path: "/api/event",
+  path: "/event",
   tags: ["SessionEvent"],
   parameters: [
     {
@@ -110,7 +110,7 @@ sessionEventRegistry.registerSecurePath({
 
 sessionEventRegistry.registerSecurePath({
   method: "post",
-  path: "/api/event/sessionReceived",
+  path: "/event/sessionReceived",
   request: {
     body: {
       content: {
@@ -126,35 +126,35 @@ sessionEventRegistry.registerSecurePath({
 
 sessionEventRegistry.registerSecurePath({
   method: "get",
-  path: "/api/event/dashboard",
+  path: "/event/dashboard",
   tags: ["SessionEvent"],
   responses: createApiResponse(SessionEventSchema, "Session Event Created"),
 });
 
 sessionEventRegistry.registerSecurePath({
   method: "get",
-  path: "/api/event/job/:jobId",
+  path: "/event/job/:jobId",
   tags: ["SessionEvent"],
   responses: createApiResponse(SessionEventSchema, "Job Status"),
 });
 
 sessionEventRegistry.registerSecurePath({
   method: "get",
-  path: "/api/event/categories",
+  path: "/event/categories",
   tags: ["SessionEvent"],
   responses: createApiResponse(CategoriesResponseSchema, "Categories Retrieved"),
 });
 
 sessionEventRegistry.registerSecurePath({
   method: "get",
-  path: "/api/event/topics",
+  path: "/event/topics",
   tags: ["SessionEvent"],
   responses: createApiResponse(TopicsResponseSchema, "Topics Retrieved"),
 });
 
 sessionEventRegistry.registerSecurePath({
   method: "get",
-  path: "/api/event/audio/:filename",
+  path: "/event/audio/:filename",
   tags: ["SessionEvent"],
   parameters: [
     {
@@ -193,7 +193,7 @@ sessionEventRegistry.registerSecurePath({
 
 sessionEventRegistry.registerSecurePath({
   method: "get",
-  path: "/api/event/check-audio/:filename",
+  path: "/event/check-audio/:filename",
   tags: ["SessionEvent"],
   parameters: [
     {
@@ -225,14 +225,14 @@ sessionEventRegistry.registerSecurePath({
 
 sessionEventRegistry.registerSecurePath({
   method: "get",
-  path: "/api/event/stats",
+  path: "/event/stats",
   tags: ["SessionEvent"],
   responses: createApiResponse(SessionStatsResponseSchema, "Session Statistics Retrieved"),
 });
 
 sessionEventRegistry.registerSecurePath({
   method: "get",
-  path: "/api/event/destnumbers",
+  path: "/event/destnumbers",
   tags: ["SessionEvent"],
   responses: createApiResponse(DestNumbersResponseSchema, "Destination Numbers Retrieved"),
 });
