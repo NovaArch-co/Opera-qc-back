@@ -6,7 +6,7 @@ dotenv.config();
 export const env = cleanEnv(process.env, {
     NODE_ENV: str({ devDefault: testOnly("test"), choices: ["development", "production", "test"] }),
     HOST: host({ devDefault: testOnly("localhost") }),
-    SWAGGER_URL: str({ devDefault: testOnly("https://qc.novaarchai.com") }),
+    SWAGGER_URL: str({ devDefault: testOnly("http://localhost:8081") }),
     PORT: port({ devDefault: testOnly(3000) }),
     CORS_ORIGIN: str({ devDefault: testOnly("*") }),
     FILE_SERVER_BASE_URL: str({ devDefault: testOnly("http://192.168.1.115/tmp/two-channel/stream-audio-incoming.php?recfile=") }),
