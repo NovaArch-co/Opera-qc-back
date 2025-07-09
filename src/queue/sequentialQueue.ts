@@ -276,29 +276,20 @@ async function analyzeAudioJob(jobData: any) {
 
         console.log(`Analyzing audio files for session ${sessionEventId}`);
 
-        // Step 1: Send files to transcription API
-        console.log("Sending files to transcription API...");
-        const transcriptionResult = await sendFilesToTranscriptionAPI(customerFilePath, agentFilePath);
-        console.log("Transcription Result:", transcriptionResult);
+        // Send files to the combined process API endpoint that handles both transcription and analysis
+        console.log("Sending files to process API...");
+        const processResult = await sendFilesToTranscriptionAPI(customerFilePath, agentFilePath);
+        console.log("Process Result:", processResult);
 
-        if (!transcriptionResult) {
+        if (!processResult) {
             return {
                 success: false,
-                error: "Transcription failed"
+                error: "Audio processing failed"
             };
         }
 
-        // Step 2: Send transcription to analysis API
-        console.log("Transcription complete, sending for analysis...");
-        const analysisResult = await sendToAnalysisAPI(transcriptionResult);
-        console.log("Analysis Result:", analysisResult);
-
-        if (!analysisResult) {
-            return {
-                success: false,
-                error: "Analysis failed"
-            };
-        }
+        // The sendToAnalysisAPI now just returns the same processResult since analysis is included
+        const analysisResult = await sendToAnalysisAPI(processResult);
 
         // Normalize the analysis result to ensure it matches our schema
         if (analysisResult.analysis) {
@@ -337,7 +328,7 @@ async function analyzeAudioJob(jobData: any) {
         }
 
         // Parse and validate the transcription and analysis results
-        const parsedTranscription = TranscriptionResponseSchema.safeParse(transcriptionResult);
+        const parsedTranscription = TranscriptionResponseSchema.safeParse(processResult);
         if (!parsedTranscription.success) {
             console.error("Invalid Transcription Data:", parsedTranscription.error.format());
             return {

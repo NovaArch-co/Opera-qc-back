@@ -1094,9 +1094,11 @@ export const sendFilesToTranscriptionAPI = async (filePathIn: string, filePathOu
         form.append("customer", fs.createReadStream(filePathIn));
         form.append("agent", fs.createReadStream(filePathOut));
 
-        const response = await axios.post("http://31.184.134.153:8001/transcribe/", form, {
+        // Updated endpoint URL
+        const response = await axios.post("http://31.184.134.153:8003/process/", form, {
             headers: {
                 ...form.getHeaders(),
+                "accept": "application/json"
             },
         });
 
@@ -1114,16 +1116,12 @@ export const sendToAnalysisAPI = async (transcriptionData: any) => {
             return null;
         }
 
-        const response = await axios.post("http://31.184.134.153:8001/analyze/", transcriptionData, {
-            headers: {
-                "Content-Type": "application/json",
-                "Accept": "application/json",
-            },
-        });
-
-        return response.data;
+        // Since we now get the analysis directly from the process endpoint,
+        // we don't need a separate analysis API call. Just return the transcription data
+        // which should already include the analysis.
+        return transcriptionData;
     } catch (error: any) {
-        console.error("Error sending transcription to analysis API:", error.response?.data || error.message);
+        console.error("Error in analysis processing:", error.message);
         return null;
     }
 };

@@ -181,23 +181,21 @@ export const sessionWorker = new Worker(
             console.log("Created session event:", sessionEvent);
 
             try {
-                // Step 3: Send files to transcription API
-                console.log("Sending files to transcription API...");
-                const transcriptionResult = await sendFilesToTranscriptionAPI(customerFilePath, agentFilePath);
-                console.log("Transcription Result:", transcriptionResult);
+                // Step 3: Send files to the combined process API for both transcription and analysis
+                console.log("Sending files to process API...");
+                const processResult = await sendFilesToTranscriptionAPI(customerFilePath, agentFilePath);
+                console.log("Process Result:", processResult);
 
-                if (transcriptionResult) {
-                    console.log("Transcription complete, sending for analysis...");
-
-                    // Step 4: Send transcription to analysis API
-                    const analysisResult = await sendToAnalysisAPI(transcriptionResult);
+                if (processResult) {
+                    // The analysis is already included in the process result
+                    const analysisResult = await sendToAnalysisAPI(processResult);
                     console.log("Analysis Result:", analysisResult);
 
                     if (analysisResult) {
-                        console.log("Analysis complete");
+                        console.log("Process completed successfully");
 
                         // Parse and validate the transcription and analysis results
-                        const parsedTranscription = TranscriptionResponseSchema.safeParse(transcriptionResult);
+                        const parsedTranscription = TranscriptionResponseSchema.safeParse(processResult);
                         if (!parsedTranscription.success) {
                             console.error("Invalid Transcription Data:", parsedTranscription.error.format());
                         } else {
