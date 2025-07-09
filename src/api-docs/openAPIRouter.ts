@@ -14,21 +14,40 @@ openAPIRouter.get("/swagger.json", (_req: Request, res: Response) => {
   res.send(openAPIDocument);
 });
 
+// Create a proxy for API requests from Swagger UI to fix the path issues
+openAPIRouter.all("/proxy/*", (req: Request, res: Response) => {
+  // Strip "/proxy" from the path and forward to the actual API endpoint
+  const targetPath = req.path.replace('/proxy', '');
+  console.log(`Proxying request from ${req.path} to ${targetPath}`);
+
+  // Forward the request to the correct API endpoint
+  req.url = targetPath;
+
+  // Continue processing the request through the Express middleware chain
+  res.locals.proxied = true;
+  req.app._router.handle(req, res);
+});
+
 // Configure Swagger options
 const swaggerOptions = {
   swaggerOptions: {
     displayRequestDuration: true,
     docExpansion: "none",
-    // Set proper URLs and server handling for correct API calls
-    tryItOutEnabled: true,
-    supportedSubmitMethods: ['get', 'post', 'put', 'delete', 'patch'],
+    // Explicitly set the server URL
+    url: "/api/docs/swagger.json",
+    // Set up customized request handling
     requestInterceptor: (req: Record<string, any>) => {
-      // This code will run in the browser when "Try it out" is used
-      const newReq = req;
-      if (req.url && typeof req.url === 'string' && req.url.includes('/api/docs/api/')) {
-        // Fix the URL by removing the duplicate /api/docs prefix
-        newReq.url = req.url.replace('/api/docs/api/', '/api/');
+      const newReq = { ...req };
+
+      // Redirect all API requests through our proxy
+      if (newReq.url && typeof newReq.url === 'string') {
+        // If the URL contains an API path that would be affected by the /api/docs prefix
+        if (newReq.url.includes('/api/') && !newReq.url.includes('/api/docs/swagger')) {
+          // Replace the URL to use our proxy endpoint
+          newReq.url = newReq.url.replace(/\/api\//, '/api/docs/proxy/');
+        }
       }
+
       return newReq;
     }
   }

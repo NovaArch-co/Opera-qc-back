@@ -30,17 +30,14 @@ export function generateOpenAPIDocument() {
 
     const generator = new OpenApiGeneratorV3(registry.definitions);
 
-    // Use the environment variable for server URL
-    const serverUrl = env.SWAGGER_URL;
+    // Get the base server URL without any path components
+    const baseUrl = env.SWAGGER_URL.replace(/\/[^/]*$/, '').replace(/\/+$/, '');
 
-    // Extract base URL without path components
-    const baseUrl = serverUrl.replace(/\/[^/]*$/, '').replace(/\/+$/, '');
-
-    // Create multiple server configurations to help with API testing
+    // Define servers for OpenAPI doc
     const servers = [
         {
-            url: baseUrl,
-            description: "API Server"
+            url: `${baseUrl}/api/docs/proxy`,
+            description: "API Server (via Swagger proxy)"
         }
     ];
 
@@ -49,8 +46,7 @@ export function generateOpenAPIDocument() {
         info: {
             version: "1.0.0",
             title: "Opera QC API Documentation",
-            description: "API documentation for the Opera QC backend service.\n\n" +
-                "**Important:** When using the 'Try it out' feature, make sure to remove any duplicate '/api/docs' in the request URL."
+            description: "API documentation for the Opera QC backend service."
         },
         servers: servers,
         // Default security is JWT for most endpoints

@@ -1,5 +1,5 @@
 import cors from "cors";
-import express, { type Express } from "express";
+import express, { type Express, type NextFunction, type Request, type Response } from "express";
 import helmet from "helmet";
 import { pino } from "pino";
 
@@ -61,9 +61,20 @@ app.use(cors({
     allowedHeaders: ['Content-Type', 'Authorization'],
     credentials: true
 }));
+
+// Add middleware to skip logging for proxied requests (to avoid duplicate logs)
+app.use((req: Request, res: Response, next: NextFunction) => {
+    if (res.locals.proxied) {
+        console.log(`Processing proxied request: ${req.method} ${req.url}`);
+        // Skip further middleware for proxied requests
+        return next();
+    }
+    next();
+});
+
 app.use(rateLimiter);
 
-// Request logging
+// Request logging (the requestLogger is already an array of middleware functions)
 app.use(requestLogger);
 
 // Routes
