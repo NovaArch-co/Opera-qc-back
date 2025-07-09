@@ -19,10 +19,18 @@ const swaggerOptions = {
   swaggerOptions: {
     displayRequestDuration: true,
     docExpansion: "none",
-    // Fix for API paths
-    url: "/api/docs/swagger.json",
-    // Disable the try-it-out feature to prevent incorrect URLs
-    supportedSubmitMethods: []
+    // Set proper URLs and server handling for correct API calls
+    tryItOutEnabled: true,
+    supportedSubmitMethods: ['get', 'post', 'put', 'delete', 'patch'],
+    requestInterceptor: (req: Record<string, any>) => {
+      // This code will run in the browser when "Try it out" is used
+      const newReq = req;
+      if (req.url && typeof req.url === 'string' && req.url.includes('/api/docs/api/')) {
+        // Fix the URL by removing the duplicate /api/docs prefix
+        newReq.url = req.url.replace('/api/docs/api/', '/api/');
+      }
+      return newReq;
+    }
   }
 };
 
