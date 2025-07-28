@@ -36,6 +36,15 @@ audioRegistry.registerPath({
                 type: "string",
             },
             description: "Optional last ID from which to fetch records (exclusive)"
+        },
+        {
+            name: "batchSize",
+            in: "query",
+            required: false,
+            schema: {
+                type: "string",
+            },
+            description: "Number of records to fetch per batch (default: 1000)"
         }
     ],
     responses: createApiResponse(SessionEventsResponseSchema, "Success"),
@@ -47,4 +56,5 @@ const RequestSchema = z.object({
 });
 
 // Define the route with basic authentication
-audioRouter.get("/sessions", basicAuth, validateRequest(RequestSchema), audioController.getSessionEvents); 
+// Skip the validateRequest middleware as we're handling streaming response directly
+audioRouter.get("/sessions", basicAuth, audioController.getSessionEvents); 

@@ -37,6 +37,7 @@ export const SessionEventSchema = z.object({
 // Query parameter schema for lastId parameter
 export const AudioQueryParamSchema = z.object({
     lastId: z.string().optional().transform((val) => (val ? parseInt(val, 10) : undefined)),
+    batchSize: z.string().optional().transform((val) => (val ? parseInt(val, 10) : 1000)),
 });
 
 // Response schema for multiple session events
