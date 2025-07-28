@@ -11,9 +11,22 @@ import { TranscriptionResponseSchema, AnalysisResponseSchema } from '@/api/sessi
 
 const prisma = new PrismaClient();
 
+// Fix MinIO endpoint configuration - add protocol if missing
+const getMinioEndpoint = () => {
+    const endpoint = env.MINIO_ENDPOINT_UTL || 'localhost';
+
+    // If endpoint already includes protocol, return as is
+    if (endpoint.startsWith('http://') || endpoint.startsWith('https://')) {
+        return endpoint;
+    }
+
+    // Otherwise, add http:// protocol
+    return `http://${endpoint}`;
+};
+
 const s3Client = new S3Client({
     region: "us-east-1",
-    endpoint: env.MINIO_ENDPOINT_UTL,
+    endpoint: getMinioEndpoint(),
     credentials: {
         accessKeyId: env.MINIO_ACCESS_KEY || "minioaccesskey",
         secretAccessKey: env.MINIO_SECRET_KEY || "miniosecretkey",

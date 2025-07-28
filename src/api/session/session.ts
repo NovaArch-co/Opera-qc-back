@@ -14,6 +14,7 @@ import { downloadAndSaveAudio } from "@/common/utils/downloadFileStream";
 import FormData from "form-data";
 import axios from "axios";
 import { addSequentialJob } from "@/queue/sequentialQueue";
+import os from "node:os";
 
 const sessionQueue = new Queue(env.BULL_QUEUE, {
     connection: {
@@ -24,9 +25,22 @@ const sessionQueue = new Queue(env.BULL_QUEUE, {
 
 const prismaClient = new PrismaClient();
 
+// Fix MinIO endpoint configuration - add protocol if missing
+const getMinioEndpoint = () => {
+    const endpoint = env.MINIO_ENDPOINT_UTL || 'localhost';
+
+    // If endpoint already includes protocol, return as is
+    if (endpoint.startsWith('http://') || endpoint.startsWith('https://')) {
+        return endpoint;
+    }
+
+    // Otherwise, add http:// protocol
+    return `http://${endpoint}`;
+};
+
 const s3Client = new S3Client({
     region: "us-east-1",
-    endpoint: env.MINIO_ENDPOINT_UTL,
+    endpoint: getMinioEndpoint(),
     credentials: {
         accessKeyId: env.MINIO_ACCESS_KEY || "minioaccesskey",
         secretAccessKey: env.MINIO_SECRET_KEY || "miniosecretkey",
@@ -50,7 +64,13 @@ export class SessionEventController {
                 dest_number,
                 date,
                 duration,
-                filename
+                filename,
+                level,
+                time,
+                pid,
+                hostname,
+                name,
+                msg
             } = req.body;
 
             // Validate required fields
@@ -76,7 +96,14 @@ export class SessionEventController {
                 destNumber: dest_number,
                 date: isoDate,
                 duration,
-                filename
+                filename,
+                // Add these fields from the request if provided
+                level: level || 30,
+                time: time || new Date().getTime(),
+                pid: pid || process.pid,
+                hostname: hostname || os.hostname(),
+                name: name || "session",
+                msg: msg || "New call session"
             });
 
             return res.status(StatusCodes.OK).json({
@@ -111,8 +138,11 @@ export class SessionEventController {
                 return handleServiceResponse(ServiceResponse.failure("Session event not found", {}, StatusCodes.NOT_FOUND), res);
             }
 
-            const incommingfileUrl = `${env.MINIO_ENDPOINT_UTL}${sessionEvent.incommingfileUrl}`
-            const outgoingfileUrl = `${env.MINIO_ENDPOINT_UTL}${sessionEvent.outgoingfileUrl}`
+            const incommingfileUrl = sessionEvent.incommingfileUrl ?
+                `${getMinioEndpoint()}${sessionEvent.incommingfileUrl}` : null;
+            const outgoingfileUrl = sessionEvent.outgoingfileUrl ?
+                `${getMinioEndpoint()}${sessionEvent.outgoingfileUrl}` : null;
+
             let sessionEvents = {
                 ...sessionEvent,
                 incommingfileUrl,
@@ -257,8 +287,8 @@ export class SessionEventController {
             // 🛠 Format URLs properly
             const formattedSessions = (sessionEvents as any[]).map(event => ({
                 ...event,
-                incommingfileUrl: event.incommingfileUrl ? `${env.MINIO_ENDPOINT_UTL}${event.incommingfileUrl}` : null,
-                outgoingfileUrl: event.outgoingfileUrl ? `${env.MINIO_ENDPOINT_UTL}${event.outgoingfileUrl}` : null,
+                incommingfileUrl: event.incommingfileUrl ? `${getMinioEndpoint()}${event.incommingfileUrl}` : null,
+                outgoingfileUrl: event.outgoingfileUrl ? `${getMinioEndpoint()}${event.outgoingfileUrl}` : null,
                 forbiddenWords: event.forbiddenWords || {},
                 topic: event.topic && typeof event.topic === 'object' && Object.keys(event.topic).length > 0
                     ? Object.keys(event.topic)[0]

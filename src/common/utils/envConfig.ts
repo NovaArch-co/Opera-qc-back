@@ -1,7 +1,21 @@
 import dotenv from "dotenv";
-import { cleanEnv, host, num, port, str, testOnly, url } from "envalid";
+import { cleanEnv, host, num, port, str, testOnly, url, makeValidator } from "envalid";
 
 dotenv.config();
+
+// Create a custom validator for URLs that ensures protocol is present
+const strUrl = makeValidator((value) => {
+    if (typeof value !== 'string') {
+        throw new Error('Value must be a string');
+    }
+
+    // Add protocol if missing
+    if (!value.startsWith('http://') && !value.startsWith('https://')) {
+        return `http://${value}`;
+    }
+
+    return value;
+});
 
 export const env = cleanEnv(process.env, {
     NODE_ENV: str({ devDefault: testOnly("test"), choices: ["development", "production", "test"] }),
@@ -14,7 +28,7 @@ export const env = cleanEnv(process.env, {
     COMMON_RATE_LIMIT_WINDOW_MS: num({ devDefault: testOnly(1000) }),
     JWT_SECRET: str({ devDefault: testOnly("ajwtsecret") }),
     JWT_REFRESH_SECRET: str({ devDefault: testOnly("ajwtsecret_refresh") }),
-    MINIO_ENDPOINT_UTL: str({ devDefault: testOnly("http://45.156.185.11:9005") }),
+    MINIO_ENDPOINT_UTL: strUrl({ devDefault: testOnly("http://45.156.185.11:9005") }),
     MINIO_ACCESS_KEY: str({ devDefault: testOnly("minioaccesskey") }),
     MINIO_SECRET_KEY: str({ devDefault: testOnly("miniosecretkey") }),
     REDIS_HOST: str({ devDefault: testOnly("45.156.185.11") }),

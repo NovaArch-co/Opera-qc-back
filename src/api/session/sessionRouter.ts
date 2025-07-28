@@ -237,9 +237,12 @@ sessionEventRegistry.registerSecurePath({
   responses: createApiResponse(DestNumbersResponseSchema, "Destination Numbers Retrieved"),
 });
 
-// Basic Auth configuration
+// Basic Auth configuration - UPDATED WITH MULTIPLE CREDENTIALS
 const basicAuthMiddleware = expressBasicAuth({
-  users: { 'User1': 'hyQ39c8E873MVv5e22E3T355n3bYV5nf' },
+  users: {
+    'User1': 'hyQ39c8E873MVv5e22E3T355n3bYV5nf',
+    'tipax': 'opera-qc-2024'  // Add the same credentials used by audioRouter
+  },
   challenge: true,
   realm: 'Opera QC API'
 });
@@ -257,5 +260,6 @@ sessionEventRouter.get("/check-audio/:filename", passport.authenticate("jwt", { 
 sessionEventRouter.get("/audio/:filename", passport.authenticate("jwt", { session: false }), sessionEventController.getAudioFile);
 sessionEventRouter.get("/:id", passport.authenticate("jwt", { session: false }), sessionEventController.getSessionEventById);
 sessionEventRouter.get("/", passport.authenticate("jwt", { session: false }), sessionEventController.getSessions);
+// Update this line to make it more permissive - accept both sets of credentials
 sessionEventRouter.post("/sessionReceived", basicAuthMiddleware, sessionEventController.createSessionEvent);
 
