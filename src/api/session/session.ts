@@ -83,6 +83,22 @@ export class SessionEventController {
                 });
             }
 
+            // Check if the call is incoming, otherwise skip processing
+            if (type !== 'incoming') {
+                console.log(`Skipping processing for non-incoming call type: ${type}, filename: ${filename}`);
+                return res.status(StatusCodes.OK).json({
+                    success: true,
+                    message: "Non-incoming call received. No processing performed.",
+                    data: {
+                        type,
+                        processed: false
+                    },
+                    statusCode: StatusCodes.OK
+                });
+            }
+
+            console.log(`Processing incoming call, filename: ${filename}`);
+
             // Convert date to ISO format
             const isoDate = moment(date, 'YYYY-MM-DD HH:mm:ss').toDate();
 
@@ -111,7 +127,8 @@ export class SessionEventController {
                 message: "Session event processing started (sequential processing)",
                 data: {
                     jobId: job.id,
-                    status: "waiting"
+                    status: "waiting",
+                    type
                 },
                 statusCode: StatusCodes.OK
             });

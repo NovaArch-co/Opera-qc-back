@@ -136,6 +136,18 @@ sequentialWorker.on('failed', (job, error) => {
 
 // Helper function to add a job to the sequential queue
 export async function addSequentialJob(type: string, data: any, options = {}) {
+    // If it's a process-session job, check if it's an incoming call
+    if (type === 'process-session' && data.type !== 'incoming') {
+        console.log(`Skipping job creation for non-incoming call: ${data.filename || 'unknown'}`);
+        return {
+            id: 'skipped',
+            data: {
+                type: data.type,
+                processed: false
+            }
+        };
+    }
+
     return await sequentialQueue.add(`${type}-job`, { type, data }, options);
 }
 
@@ -155,6 +167,18 @@ async function processSessionJob(jobData: any) {
         } = jobData;
 
         console.log("Processing session job with data:", jobData);
+
+        // Double-check that we only process incoming calls
+        // This is a safety measure in case the controller filtering is bypassed
+        if (type !== 'incoming') {
+            console.log(`Skipping processing for non-incoming call type: ${type}, filename: ${filename}`);
+            return {
+                success: true,
+                message: "Non-incoming call skipped",
+                processed: false,
+                type
+            };
+        }
 
         // Handle cases where fields might be undefined
         const sourceChannelValue = sourceChannel || "";

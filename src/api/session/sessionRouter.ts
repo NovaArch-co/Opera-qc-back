@@ -108,7 +108,7 @@ sessionEventRegistry.registerSecurePath({
   responses: createApiResponse(GetSessionEventsSchema, "Success"),
 });
 
-sessionEventRegistry.registerSecurePath({
+sessionEventRegistry.registerPath({
   method: "post",
   path: "/api/event/sessionReceived",
   request: {
@@ -121,7 +121,36 @@ sessionEventRegistry.registerSecurePath({
     },
   },
   tags: ["SessionEvent"],
-  responses: createApiResponse(CreateSessionEventResponseSchema, "Session Event Created"),
+  description: "Submit a new call session event. Note: Only calls with type='incoming' will be processed. Calls with type='outgoing' will be acknowledged but not processed.",
+  responses: {
+    "200": {
+      description: "Session event received",
+      content: {
+        "application/json": {
+          schema: z.object({
+            success: z.boolean().openapi({ example: true }),
+            message: z.string().openapi({ example: "Session event processing started (sequential processing)" }),
+            data: z.object({
+              jobId: z.string().openapi({ example: "process-session-job-12345" }),
+              status: z.string().openapi({ example: "waiting" }),
+              type: z.string().openapi({ example: "incoming" }),
+              processed: z.boolean().optional().openapi({ example: true, description: "Whether the call will be processed. Only true for incoming calls." })
+            }).openapi({ description: "Response data object" }),
+            statusCode: z.number().openapi({ example: 200 })
+          })
+        }
+      }
+    },
+    "400": {
+      description: "Bad request - missing required fields",
+    },
+    "401": {
+      description: "Unauthorized - invalid credentials",
+    },
+    "500": {
+      description: "Server error",
+    }
+  }
 });
 
 sessionEventRegistry.registerSecurePath({
