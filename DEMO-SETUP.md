@@ -67,17 +67,17 @@ psql -h localhost -p 5433 -U postgres -d opera_qc_demo
 
 ### Check logs:
 ```bash
-docker-compose -f docker-compose.demo.yml logs -f
+docker compose -f docker-compose.demo.yml logs -f
 ```
 
 ### Check specific service:
 ```bash
-docker-compose -f docker-compose.demo.yml logs -f app-demo
+docker compose -f docker-compose.demo.yml logs -f app-demo
 ```
 
 ### View running containers:
 ```bash
-docker-compose -f docker-compose.demo.yml ps
+docker compose -f docker-compose.demo.yml ps
 ```
 
 ## 🛑 Management
@@ -94,7 +94,7 @@ docker-compose -f docker-compose.demo.yml ps
 
 ### Remove demo data (⚠️ Destructive):
 ```bash
-docker-compose -f docker-compose.demo.yml down -v
+docker compose -f docker-compose.demo.yml down -v
 ```
 
 ## 🔐 Authentication

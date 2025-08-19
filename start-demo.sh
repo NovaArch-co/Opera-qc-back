@@ -25,11 +25,11 @@ fi
 
 # Stop any existing demo containers
 echo "🛑 Stopping any existing demo containers..."
-docker-compose -f docker-compose.demo.yml down
+docker compose -f docker-compose.demo.yml down
 
 # Start the demo instance
 echo "🔧 Starting demo services..."
-docker-compose -f docker-compose.demo.yml --env-file .env.demo up -d
+docker compose -f docker-compose.demo.yml --env-file .env.demo up -d
 
 echo ""
 echo "✅ Demo instance is starting up!"
@@ -42,10 +42,10 @@ echo "- PostgreSQL:         localhost:5433"
 echo "- Redis:              localhost:6380"
 echo ""
 echo "🔧 To check logs:"
-echo "docker-compose -f docker-compose.demo.yml logs -f"
+echo "docker compose -f docker-compose.demo.yml logs -f"
 echo ""
 echo "🛑 To stop:"
-echo "docker-compose -f docker-compose.demo.yml down"
+echo "docker compose -f docker-compose.demo.yml down"
 echo ""
 echo "🧪 Test voice folder processing:"
 echo "curl -X POST http://localhost:8082/api/event/processVoiceFolder -u tipax:opera-qc-2024 -H 'Content-Type: application/json'"
