@@ -1,0 +1,120 @@
+version: '3.8'
+
+services:
+  redis-demo:
+    image: docker.arvancloud.ir/redis:latest
+    container_name: opera-qc-redis-demo
+    ports:
+      - "6380:6379"  # Changed from 6379 to 6380
+    volumes:
+      - redis_demo_data:/data
+    command: redis-server --appendonly yes
+    networks:
+      - app-demo-network
+
+  minio-demo:
+    image: docker.arvancloud.ir/minio/minio
+    container_name: minio-demo
+    environment:
+      MINIO_ACCESS_KEY: minioaccesskey
+      MINIO_SECRET_KEY: miniosecretkey
+    ports:
+      - "9002:9000"  # Changed from 9000 to 9002
+      - "9003:9001"  # Changed from 9001 to 9003
+    volumes:
+      - minio_demo_data:/data
+    command: server /data --console-address ":9001"
+    networks:
+      - app-demo-network
+
+  postgres-demo:
+    image: docker.arvancloud.ir/bitnami/postgresql:17.2.0
+    container_name: postgres-demo
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-opera_qc_demo}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-StrongP@ssw0rd123}
+      ALLOW_EMPTY_PASSWORD: "yes"
+    ports:
+      - "5433:5432"  # Changed from 5432 to 5433
+    volumes:
+      - postgres_demo_data:/bitnami/postgresql
+    user: root
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-opera_qc_demo}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - app-demo-network
+
+  app-demo:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: app-demo
+    ports:
+      - "8082:8081"  # Changed from 8081 to 8082
+      - "5556:5555"  # Changed from 5555 to 5556
+    environment:
+      - NODE_ENV=development
+      - PORT=8081
+      - POSTGRES_HOST=postgres-demo
+      - POSTGRES_PORT=5432
+      - POSTGRES_DB=${POSTGRES_DB:-opera_qc_demo}
+      - POSTGRES_USER=${POSTGRES_USER:-postgres}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-StrongP@ssw0rd123}
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-StrongP@ssw0rd123}@postgres-demo:5432/${POSTGRES_DB:-opera_qc_demo}
+      - REDIS_HOST=redis-demo
+      - REDIS_PORT=6379
+      - FILE_SERVER_BASE_URL=http://192.168.1.115/tmp/two-channel/stream-audio-incoming.php?recfile=
+      - AUDIO_DIR=/home/afeai/conversations
+      - MINIO_ENDPOINT=minio-demo
+      - MINIO_ENDPOINT_UTL=http://minio-demo:9000
+      - MINIO_PORT=9000
+      - MINIO_ACCESS_KEY=minioaccesskey
+      - MINIO_SECRET_KEY=miniosecretkey
+      - JWT_SECRET=${JWT_SECRET:-your-demo-secret-key}
+      - JWT_EXPIRES_IN=${JWT_EXPIRES_IN:-1d}
+      - CORS_ORIGIN=${CORS_ORIGIN:-http://localhost:3000,http://localhost:5173,http://5.202.171.177:8082}
+      - BULL_QUEUE=${BULL_QUEUE:-analyseCalls_demo}
+      # Add voice folder path
+      - VOICE_FOLDER_PATH=/home/afeai/VOICE-2channel
+    volumes:
+      - /home/afeai/conversations:/home/afeai/conversations:ro
+      - /home/afeai/VOICE-2channel:/home/afeai/VOICE-2channel:ro  # Mount voice folder
+    depends_on:
+      postgres-demo:
+        condition: service_healthy
+      minio-demo:
+        condition: service_started
+      redis-demo:
+        condition: service_started
+    command: sh -c "npx prisma generate && npx prisma migrate deploy && npm start"
+    networks:
+      - app-demo-network
+
+  # operaai-demo:
+  #   image: operaasr2:v1.1T
+  #   container_name: operaai-demo
+  #   runtime: nvidia
+  #   environment:
+  #     - NVIDIA_VISIBLE_DEVICES=all
+  #   ports:
+  #     - "8001:8000"  # Changed from 8000 to 8001
+  #   command: uvicorn main:app --host 0.0.0.0 --port 8000
+  #   networks:
+  #     - app-demo-network
+
+
+networks:
+  app-demo-network:
+    driver: bridge
+
+volumes:
+  postgres_demo_data:
+    driver: local
+  minio_demo_data:
+    driver: local
+  redis_demo_data:
+    driver: local

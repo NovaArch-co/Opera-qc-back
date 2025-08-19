@@ -14,6 +14,7 @@ import { downloadAndSaveAudio } from "@/common/utils/downloadFileStream";
 import FormData from "form-data";
 import axios from "axios"; // ✅ Make sure you are using `form-data` package
 import { addSequentialJob } from "@/queue/sequentialQueue";
+import os from "node:os";
 
 const sessionQueue = new Queue(env.BULL_QUEUE, {
     connection: {
@@ -1021,6 +1022,254 @@ export class SessionEventController {
                     message: error.message,
                     stack: error.stack
                 }
+            });
+        }
+    };
+
+    public processFolderAudio: RequestHandler = async (req: Request, res: Response) => {
+        try {
+            const { folderPath, processAll = true } = req.body;
+
+            if (!folderPath) {
+                return res.status(StatusCodes.BAD_REQUEST).json({
+                    success: false,
+                    message: "Folder path is required",
+                    data: null,
+                    statusCode: StatusCodes.BAD_REQUEST
+                });
+            }
+
+            // Check if folder exists
+            if (!fs.existsSync(folderPath)) {
+                return res.status(StatusCodes.BAD_REQUEST).json({
+                    success: false,
+                    message: "Folder path does not exist",
+                    data: null,
+                    statusCode: StatusCodes.BAD_REQUEST
+                });
+            }
+
+            console.log(`Processing audio files from folder: ${folderPath}`);
+
+            // Scan folder for audio files
+            const audioFiles = await this.scanAudioFolder(folderPath);
+            const audioPairs = this.parseAudioFilePairs(audioFiles);
+
+            console.log(`Found ${audioFiles.length} audio files, ${audioPairs.length} pairs`);
+
+            const jobIds: string[] = [];
+
+            // Process each audio pair
+            for (const pair of audioPairs) {
+                try {
+                    const sessionData = this.mapFileToSessionData(pair);
+
+                    // Add job to sequential queue
+                    const job = await addSequentialJob('process-folder-audio', {
+                        ...sessionData,
+                        inFilePath: pair.inFile,
+                        outFilePath: pair.outFile,
+                        baseFileName: pair.baseFileName
+                    });
+
+                    jobIds.push(job.id as string);
+                    console.log(`Created job ${job.id} for ${pair.baseFileName}`);
+                } catch (error) {
+                    console.error(`Error processing pair ${pair.baseFileName}:`, error);
+                }
+            }
+
+            return res.status(StatusCodes.OK).json({
+                success: true,
+                message: "Folder processing started",
+                data: {
+                    filesFound: audioFiles.length,
+                    pairsProcessed: audioPairs.length,
+                    jobIds
+                },
+                statusCode: StatusCodes.OK
+            });
+
+        } catch (error) {
+            console.error('Error processing folder audio:', error);
+            return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+                success: false,
+                message: "Error processing folder audio",
+                data: null,
+                statusCode: StatusCodes.INTERNAL_SERVER_ERROR
+            });
+        }
+    };
+
+    private async scanAudioFolder(folderPath: string): Promise<string[]> {
+        try {
+            const files = fs.readdirSync(folderPath);
+            // Filter for .wav files only
+            return files.filter(file => file.toLowerCase().endsWith('.wav'))
+                .map(file => path.join(folderPath, file));
+        } catch (error) {
+            console.error('Error scanning folder:', error);
+            return [];
+        }
+    }
+
+    private parseAudioFilePairs(audioFiles: string[]): Array<{ baseFileName: string, inFile: string, outFile: string }> {
+        const pairs: Array<{ baseFileName: string, inFile: string, outFile: string }> = [];
+        const processedBaseNames = new Set<string>();
+
+        for (const filePath of audioFiles) {
+            const fileName = path.basename(filePath);
+
+            // Parse filename pattern: external-183-1001-20241219-081300-1734583418.28302725r.wav
+            // or: external-183-1001-20241219-081300-1734583418.28302725t.wav
+            if (fileName.endsWith('r.wav')) {
+                // This is the incoming/customer file
+                const baseFileName = fileName.replace('r.wav', '');
+
+                if (!processedBaseNames.has(baseFileName)) {
+                    const outFileName = baseFileName + 't.wav';
+                    const outFilePath = path.join(path.dirname(filePath), outFileName);
+
+                    // Check if corresponding outgoing file exists
+                    if (fs.existsSync(outFilePath)) {
+                        pairs.push({
+                            baseFileName,
+                            inFile: filePath,  // r.wav = incoming/customer
+                            outFile: outFilePath  // t.wav = outgoing/agent
+                        });
+                        processedBaseNames.add(baseFileName);
+                    } else {
+                        console.warn(`Missing outgoing file for ${fileName}`);
+                    }
+                }
+            }
+        }
+
+        return pairs;
+    }
+
+    private mapFileToSessionData(pair: { baseFileName: string, inFile: string, outFile: string }) {
+        // Parse the filename to extract session information
+        // Format: external-183-1001-20241219-081300-1734583418.28302725
+        const parts = pair.baseFileName.split('-');
+
+        if (parts.length >= 6) {
+            const [prefix, sourceExt, destExt, dateStr, timeStr, timestamp] = parts;
+
+            // Parse date and time
+            const year = dateStr.substring(0, 4);
+            const month = dateStr.substring(4, 6);
+            const day = dateStr.substring(6, 8);
+            const hour = timeStr.substring(0, 2);
+            const minute = timeStr.substring(2, 4);
+            const second = timeStr.substring(4, 6);
+
+            const callDate = `${year}-${month}-${day} ${hour}:${minute}:${second}`;
+
+            return {
+                type: 'incoming' as const,
+                sourceChannel: `SIP/${sourceExt}`,
+                sourceNumber: sourceExt,
+                queue: 'folder_processing',
+                destChannel: `SIP/${destExt}`,
+                destNumber: destExt,
+                date: new Date(callDate),
+                duration: '00:00:00', // We don't have duration info from filename
+                filename: pair.baseFileName,
+                level: 30,
+                time: Date.now(),
+                pid: process.pid,
+                hostname: os.hostname(),
+                name: 'folder_session',
+                msg: `Folder processing: ${pair.baseFileName}`
+            };
+        }
+
+        // Fallback data if parsing fails
+        return {
+            type: 'incoming' as const,
+            sourceChannel: 'SIP/unknown',
+            sourceNumber: 'unknown',
+            queue: 'folder_processing',
+            destChannel: 'SIP/unknown',
+            destNumber: 'unknown',
+            date: new Date(),
+            duration: '00:00:00',
+            filename: pair.baseFileName,
+            level: 30,
+            time: Date.now(),
+            pid: process.pid,
+            hostname: os.hostname(),
+            name: 'folder_session',
+            msg: `Folder processing: ${pair.baseFileName}`
+        };
+    }
+
+    public processDefaultVoiceFolder: RequestHandler = async (req: Request, res: Response) => {
+        try {
+            const defaultVoiceFolderPath = '/home/afeai/VOICE-2channel';
+
+            console.log(`Processing default voice folder: ${defaultVoiceFolderPath}`);
+
+            // Check if folder exists
+            if (!fs.existsSync(defaultVoiceFolderPath)) {
+                return res.status(StatusCodes.BAD_REQUEST).json({
+                    success: false,
+                    message: "Default voice folder does not exist",
+                    data: {
+                        folderPath: defaultVoiceFolderPath
+                    },
+                    statusCode: StatusCodes.BAD_REQUEST
+                });
+            }
+
+            // Scan folder for audio files
+            const audioFiles = await this.scanAudioFolder(defaultVoiceFolderPath);
+            const audioPairs = this.parseAudioFilePairs(audioFiles);
+
+            console.log(`Found ${audioFiles.length} audio files, ${audioPairs.length} pairs in voice folder`);
+
+            const jobIds: string[] = [];
+
+            // Process each audio pair
+            for (const pair of audioPairs) {
+                try {
+                    const sessionData = this.mapFileToSessionData(pair);
+
+                    // Add job to sequential queue
+                    const job = await addSequentialJob('process-folder-audio', {
+                        ...sessionData,
+                        inFilePath: pair.inFile,
+                        outFilePath: pair.outFile,
+                        baseFileName: pair.baseFileName
+                    });
+
+                    jobIds.push(job.id as string);
+                    console.log(`Created job ${job.id} for ${pair.baseFileName}`);
+                } catch (error) {
+                    console.error(`Error processing pair ${pair.baseFileName}:`, error);
+                }
+            }
+
+            return res.status(StatusCodes.OK).json({
+                success: true,
+                message: "Voice folder processing started",
+                data: {
+                    folderPath: defaultVoiceFolderPath,
+                    filesFound: audioFiles.length,
+                    pairsProcessed: audioPairs.length,
+                    jobIds
+                },
+                statusCode: StatusCodes.OK
+            });
+
+        } catch (error) {
+            console.error('Error processing default voice folder:', error);
+            return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+                success: false,
+                message: "Error processing default voice folder",
+                data: null,
+                statusCode: StatusCodes.INTERNAL_SERVER_ERROR
             });
         }
     };

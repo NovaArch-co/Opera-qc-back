@@ -82,6 +82,9 @@ export const sequentialWorker = new Worker(
                 case 'analyze-audio':
                     return await analyzeAudioJob(data);
 
+                case 'process-folder-audio':
+                    return await processFolderAudioJob(data);
+
                 default:
                     console.log(`Unknown job type: ${type}`);
                     return {
@@ -436,6 +439,111 @@ async function analyzeAudioJob(jobData: any) {
         };
     } catch (error) {
         console.error("Error analyzing audio:", error);
+        throw error;
+    }
+}
+
+// Processing function for folder audio jobs
+async function processFolderAudioJob(jobData: any) {
+    try {
+        const {
+            type,
+            sourceChannel,
+            sourceNumber,
+            queue,
+            destChannel,
+            destNumber,
+            date,
+            duration,
+            filename,
+            inFilePath,
+            outFilePath,
+            baseFileName
+        } = jobData;
+
+        console.log("Processing folder audio job with data:", jobData);
+
+        // Check that files exist
+        if (!fs.existsSync(inFilePath) || !fs.existsSync(outFilePath)) {
+            console.error(`Audio files not found: ${inFilePath} or ${outFilePath}`);
+            return {
+                success: false,
+                error: "Audio files not found"
+            };
+        }
+
+        // Read audio files
+        const customerAudioBuffer = fs.readFileSync(inFilePath);
+        const agentAudioBuffer = fs.readFileSync(outFilePath);
+
+        // Upload files to MinIO
+        const customerKey = `${baseFileName}-in.wav`;
+        const agentKey = `${baseFileName}-out.wav`;
+
+        // Ensure bucket exists before uploading
+        await ensureBucketExists();
+
+        // Upload customer file to MinIO
+        await s3Client.send(
+            new PutObjectCommand({
+                Bucket: BUCKET_NAME,
+                Key: customerKey,
+                Body: customerAudioBuffer,
+                ContentType: 'audio/wav'
+            })
+        );
+        console.log("Uploaded customer file to MinIO:", customerKey);
+
+        // Upload agent file to MinIO
+        await s3Client.send(
+            new PutObjectCommand({
+                Bucket: BUCKET_NAME,
+                Key: agentKey,
+                Body: agentAudioBuffer,
+                ContentType: 'audio/wav'
+            })
+        );
+        console.log("Uploaded agent file to MinIO:", agentKey);
+
+        // Create session event in database
+        const sessionEvent = await prisma.sessionEvent.create({
+            data: {
+                level: 30,
+                time: new Date().toISOString(),
+                pid: process.pid,
+                hostname: os.hostname(),
+                name: "FOLDER_SESSION_EVENT",
+                msg: `Folder audio processed: ${filename}`,
+                type,
+                sourceChannel: sourceChannel || "",
+                sourceNumber: sourceNumber || "",
+                queue: queue || "",
+                destChannel: destChannel || "",
+                destNumber: destNumber || "",
+                date: new Date(date),
+                duration,
+                filename,
+                keyWords: []
+            }
+        });
+
+        console.log("Created session event:", sessionEvent);
+
+        // Now add a job to analyze the audio
+        await addSequentialJob('analyze-audio', {
+            sessionEventId: sessionEvent.id,
+            customerFilePath: inFilePath,
+            agentFilePath: outFilePath,
+            filename: baseFileName
+        });
+
+        return {
+            success: true,
+            sessionEventId: sessionEvent.id,
+            message: "Folder audio processing completed, analysis queued"
+        };
+    } catch (error) {
+        console.error("Error processing folder audio:", error);
         throw error;
     }
 } 

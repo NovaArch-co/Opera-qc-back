@@ -237,9 +237,105 @@ sessionEventRegistry.registerSecurePath({
   responses: createApiResponse(DestNumbersResponseSchema, "Destination Numbers Retrieved"),
 });
 
-// Basic Auth configuration
+sessionEventRegistry.registerPath({
+  method: "post",
+  path: "/api/event/processFolderAudio",
+  tags: ["SessionEvent"],
+  description: "Process audio files from a local folder. Scans for audio file pairs (r/t) and processes them through the AI pipeline.",
+  requestBody: {
+    content: {
+      "application/json": {
+        schema: {
+          type: "object",
+          properties: {
+            folderPath: {
+              type: "string",
+              example: "/home/afeai/VOICE-2channel",
+              description: "Path to the folder containing audio files"
+            },
+            processAll: {
+              type: "boolean",
+              example: true,
+              description: "Whether to process all files or just new ones"
+            }
+          },
+          required: ["folderPath"]
+        }
+      }
+    }
+  },
+  responses: {
+    "200": {
+      description: "Folder processing started",
+      content: {
+        "application/json": {
+          schema: z.object({
+            success: z.boolean().openapi({ example: true }),
+            message: z.string().openapi({ example: "Folder processing started" }),
+            data: z.object({
+              filesFound: z.number().openapi({ example: 10 }),
+              pairsProcessed: z.number().openapi({ example: 5 }),
+              jobIds: z.array(z.string()).openapi({ example: ["job-1", "job-2"] })
+            }),
+            statusCode: z.number().openapi({ example: 200 })
+          })
+        }
+      }
+    },
+    "400": {
+      description: "Bad request - invalid folder path",
+    },
+    "401": {
+      description: "Unauthorized - invalid credentials",
+    },
+    "500": {
+      description: "Server error",
+    }
+  }
+});
+
+sessionEventRegistry.registerPath({
+  method: "post",
+  path: "/api/event/processVoiceFolder",
+  tags: ["SessionEvent"],
+  description: "Process audio files from the default voice folder (/home/afeai/VOICE-2channel). This is a convenient endpoint that doesn't require specifying the folder path.",
+  responses: {
+    "200": {
+      description: "Voice folder processing started",
+      content: {
+        "application/json": {
+          schema: z.object({
+            success: z.boolean().openapi({ example: true }),
+            message: z.string().openapi({ example: "Voice folder processing started" }),
+            data: z.object({
+              folderPath: z.string().openapi({ example: "/home/afeai/VOICE-2channel" }),
+              filesFound: z.number().openapi({ example: 10 }),
+              pairsProcessed: z.number().openapi({ example: 5 }),
+              jobIds: z.array(z.string()).openapi({ example: ["job-1", "job-2"] })
+            }),
+            statusCode: z.number().openapi({ example: 200 })
+          })
+        }
+      }
+    },
+    "400": {
+      description: "Bad request - voice folder not accessible",
+    },
+    "401": {
+      description: "Unauthorized - invalid credentials",
+    },
+    "500": {
+      description: "Server error",
+    }
+  }
+});
+
+// Basic Auth configuration - UPDATED WITH MULTIPLE CREDENTIALS
 const basicAuthMiddleware = expressBasicAuth({
-  users: { 'User1': 'hyQ39c8E873MVv5e22E3T355n3bYV5nf' },
+  users: {
+    'User1': 'hyQ39c8E873MVv5e22E3T355n3bYV5nf',
+    'tipax': 'opera-qc-2024'  // Add the same credentials used by audioRouter
+  },
   challenge: true,
   realm: 'Opera QC API'
 });
@@ -258,4 +354,8 @@ sessionEventRouter.get("/audio/:filename", passport.authenticate("jwt", { sessio
 sessionEventRouter.get("/:id", passport.authenticate("jwt", { session: false }), sessionEventController.getSessionEventById);
 sessionEventRouter.get("/", passport.authenticate("jwt", { session: false }), sessionEventController.getSessions);
 sessionEventRouter.post("/sessionReceived", basicAuthMiddleware, sessionEventController.createSessionEvent);
+// New endpoint to process audio files from folder
+sessionEventRouter.post("/processFolderAudio", basicAuthMiddleware, sessionEventController.processFolderAudio);
+// Convenient endpoint to process the default voice folder
+sessionEventRouter.post("/processVoiceFolder", basicAuthMiddleware, sessionEventController.processDefaultVoiceFolder);
 
