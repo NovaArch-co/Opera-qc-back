@@ -42,58 +42,25 @@ export class SessionEventController {
 
     public createSessionEvent = async (req: Request, res: Response) => {
         try {
-            const {
-                type,
-                source_channel,
-                source_number,
-                queue,
-                dest_channel,
-                dest_number,
-                date,
-                duration,
-                filename
-            } = req.body;
-
-            // Validate required fields
-            if (!type || !source_channel || !source_number || !queue || !dest_channel || !dest_number || !date || !duration || !filename) {
-                return res.status(StatusCodes.BAD_REQUEST).json({
-                    success: false,
-                    message: "Missing required fields",
-                    data: null,
-                    statusCode: StatusCodes.BAD_REQUEST
-                });
-            }
-
-            // Convert date to ISO format
-            const isoDate = moment(date, 'YYYY-MM-DD HH:mm:ss').toDate();
-
-            // Add job to sequential queue instead of the regular queue
-            const job = await addSequentialJob('process-session', {
-                type,
-                sourceChannel: source_channel,
-                sourceNumber: source_number,
-                queue,
-                destChannel: dest_channel,
-                destNumber: dest_number,
-                date: isoDate,
-                duration,
-                filename
-            });
-
+            console.log("Webhook call received - DISABLED in demo instance");
+            
+            // Webhook processing is disabled in demo instance
+            // Use /api/event/processVoiceFolder for folder processing instead
             return res.status(StatusCodes.OK).json({
                 success: true,
-                message: "Session event processing started (sequential processing)",
+                message: "Webhook processing is disabled in demo instance. Use /api/event/processVoiceFolder for folder processing.",
                 data: {
-                    jobId: job.id,
-                    status: "waiting"
+                    webhookDisabled: true,
+                    alternativeEndpoint: "/api/event/processVoiceFolder",
+                    processed: false
                 },
                 statusCode: StatusCodes.OK
             });
         } catch (error) {
-            console.error('Error creating session event:', error);
+            console.error('Error in webhook endpoint:', error);
             return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
                 success: false,
-                message: "Error processing session event",
+                message: "Webhook processing is disabled",
                 data: null,
                 statusCode: StatusCodes.INTERNAL_SERVER_ERROR
             });

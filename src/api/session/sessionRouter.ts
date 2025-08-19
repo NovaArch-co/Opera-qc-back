@@ -108,20 +108,30 @@ sessionEventRegistry.registerSecurePath({
   responses: createApiResponse(GetSessionEventsSchema, "Success"),
 });
 
-sessionEventRegistry.registerSecurePath({
+sessionEventRegistry.registerPath({
   method: "post",
   path: "/api/event/sessionReceived",
-  request: {
-    body: {
+  tags: ["SessionEvent"],
+  description: "Webhook endpoint - DISABLED in demo instance. Use /api/event/processVoiceFolder for folder processing instead.",
+  responses: {
+    "200": {
+      description: "Webhook disabled response",
       content: {
         "application/json": {
-          schema: SessionEventSchema,
-        },
-      },
-    },
-  },
-  tags: ["SessionEvent"],
-  responses: createApiResponse(CreateSessionEventResponseSchema, "Session Event Created"),
+          schema: z.object({
+            success: z.boolean().openapi({ example: true }),
+            message: z.string().openapi({ example: "Webhook processing is disabled in demo instance. Use /api/event/processVoiceFolder for folder processing." }),
+            data: z.object({
+              webhookDisabled: z.boolean().openapi({ example: true }),
+              alternativeEndpoint: z.string().openapi({ example: "/api/event/processVoiceFolder" }),
+              processed: z.boolean().openapi({ example: false })
+            }),
+            statusCode: z.number().openapi({ example: 200 })
+          })
+        }
+      }
+    }
+  }
 });
 
 sessionEventRegistry.registerSecurePath({
