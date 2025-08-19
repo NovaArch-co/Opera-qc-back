@@ -25,7 +25,7 @@ This setup allows you to run a separate demo instance of the Opera QC backend al
 
 | Service | Production | Demo | Description |
 |---------|------------|------|-------------|
-| **API Server** | 8081 | **8082** | Main application |
+| **API Server** | 8081 | **8083** | Main application |
 | **PostgreSQL** | 5432 | **5433** | Database |
 | **Redis** | 6379 | **6380** | Queue & cache |
 | **MinIO API** | 9000 | **9002** | Object storage |
@@ -34,10 +34,10 @@ This setup allows you to run a separate demo instance of the Opera QC backend al
 
 ## 🔧 Service URLs
 
-- **API Documentation:** http://localhost:8082/docs
-- **API Base:** http://localhost:8082/api
+- **API Documentation:** http://localhost:8083/docs
+- **API Base:** http://localhost:8083/api
 - **MinIO Console:** http://localhost:9003
-- **Voice Folder Processing:** `POST http://localhost:8082/api/event/processVoiceFolder`
+- **Voice Folder Processing:** `POST http://localhost:8083/api/event/processVoiceFolder`
 
 ## 📂 Key Features
 
@@ -107,20 +107,20 @@ Same credentials as production:
 
 ### Process Voice Folder:
 ```bash
-curl -X POST http://localhost:8082/api/event/processVoiceFolder \
+curl -X POST http://localhost:8083/api/event/processVoiceFolder \
   -u tipax:opera-qc-2024 \
   -H 'Content-Type: application/json'
 ```
 
 ### Check Sessions:
 ```bash
-curl -X GET http://localhost:8082/api/audio/sessions \
+curl -X GET http://localhost:8083/api/audio/sessions \
   -u tipax:opera-qc-2024
 ```
 
 ### Process Custom Folder:
 ```bash
-curl -X POST http://localhost:8082/api/event/processFolderAudio \
+curl -X POST http://localhost:8083/api/event/processFolderAudio \
   -u tipax:opera-qc-2024 \
   -H 'Content-Type: application/json' \
   -d '{"folderPath": "/path/to/custom/folder"}'

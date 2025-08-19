@@ -3,7 +3,7 @@ const axios = require('axios');
 
 async function testFolderProcessing() {
     try {
-        const response = await axios.post('http://localhost:3000/api/event/processFolderAudio', {
+        const response = await axios.post('http://localhost:8083/api/event/processFolderAudio', {
             folderPath: '/home/afeai/VOICE-2channel',
             processAll: true
         }, {
@@ -28,7 +28,7 @@ async function testFolderProcessing() {
 
 async function testDefaultVoiceFolder() {
     try {
-        const response = await axios.post('http://localhost:3000/api/event/processVoiceFolder', {}, {
+        const response = await axios.post('http://localhost:8083/api/event/processVoiceFolder', {}, {
             auth: {
                 username: 'tipax',
                 password: 'opera-qc-2024'
