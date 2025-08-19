@@ -52,20 +52,20 @@ services:
       dockerfile: Dockerfile
     container_name: app-demo
     ports:
-      - "8083:8081"  # Changed from 8081 to 8083 (8082 is used by frontend)
+      - "8081:8081"  # Backend demo on port 8081
       - "5556:5555"  # Changed from 5555 to 5556
     environment:
       - NODE_ENV=development
       - HOST=localhost
       - PORT=8081
-      - SWAGGER_URL=http://localhost:8083
+      - SWAGGER_URL=http://localhost:8081
       - POSTGRES_DB=${POSTGRES_DB:-opera_qc_demo}
       - POSTGRES_USER=${POSTGRES_USER:-postgres}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-postgres}
       - POSTGRES_HOST=postgres-demo
       - POSTGRES_PORT=5432
       - DATABASE_URL=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres-demo:5432/${POSTGRES_DB:-opera_qc_demo}
-      - CORS_ORIGIN=${CORS_ORIGIN:-http://localhost:3000,http://localhost:5173,http://localhost:8083}
+      - CORS_ORIGIN=${CORS_ORIGIN:-http://localhost:8082}
       - JWT_SECRET=${JWT_SECRET:-your-demo-secret-key}
       - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET:-ajwtsecret_refresh_demo}
       - JWT_EXPIRES_IN=${JWT_EXPIRES_IN:-1d}
