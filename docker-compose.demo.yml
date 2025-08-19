@@ -33,7 +33,7 @@ services:
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-opera_qc_demo}
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-StrongP@ssw0rd123}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
       ALLOW_EMPTY_PASSWORD: "yes"
     ports:
       - "5433:5432"  # Changed from 5432 to 5433
@@ -58,28 +58,32 @@ services:
       - "5556:5555"  # Changed from 5555 to 5556
     environment:
       - NODE_ENV=development
+      - HOST=localhost
       - PORT=8081
-      - POSTGRES_HOST=postgres-demo
-      - POSTGRES_PORT=5432
+      - SWAGGER_URL=http://localhost:8082
       - POSTGRES_DB=${POSTGRES_DB:-opera_qc_demo}
       - POSTGRES_USER=${POSTGRES_USER:-postgres}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-StrongP@ssw0rd123}
-      - DATABASE_URL=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-StrongP@ssw0rd123}@postgres-demo:5432/${POSTGRES_DB:-opera_qc_demo}
-      - REDIS_HOST=redis-demo
-      - REDIS_PORT=6379
-      - FILE_SERVER_BASE_URL=http://192.168.1.115/tmp/two-channel/stream-audio-incoming.php?recfile=
-      - AUDIO_DIR=/home/afeai/conversations
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-postgres}
+      - POSTGRES_HOST=postgres-demo
+      - POSTGRES_PORT=5432
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres-demo:5432/${POSTGRES_DB:-opera_qc_demo}
+      - CORS_ORIGIN=${CORS_ORIGIN:-http://localhost:3000,http://localhost:5173,http://localhost:8082}
+      - JWT_SECRET=${JWT_SECRET:-your-demo-secret-key}
+      - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET:-ajwtsecret_refresh_demo}
+      - JWT_EXPIRES_IN=${JWT_EXPIRES_IN:-1d}
+      - COMMON_RATE_LIMIT_WINDOW_MS=${COMMON_RATE_LIMIT_WINDOW_MS:-1000}
+      - COMMON_RATE_LIMIT_MAX_REQUESTS=${COMMON_RATE_LIMIT_MAX_REQUESTS:-1000}
+      - FILE_SERVER_BASE_URL=${FILE_SERVER_BASE_URL:-http://185.243.48.218:4567/}
       - MINIO_ENDPOINT=minio-demo
       - MINIO_ENDPOINT_UTL=http://minio-demo:9000
       - MINIO_PORT=9000
       - MINIO_ACCESS_KEY=minioaccesskey
       - MINIO_SECRET_KEY=miniosecretkey
-      - JWT_SECRET=${JWT_SECRET:-your-demo-secret-key}
-      - JWT_EXPIRES_IN=${JWT_EXPIRES_IN:-1d}
-      - CORS_ORIGIN=${CORS_ORIGIN:-http://localhost:3000,http://localhost:5173,http://5.202.171.177:8082}
+      - REDIS_HOST=redis-demo
+      - REDIS_PORT=6379
       - BULL_QUEUE=${BULL_QUEUE:-analyseCalls_demo}
-      # Add voice folder path
       - VOICE_FOLDER_PATH=/home/afeai/VOICE-2channel
+      - AUDIO_DIR=/home/afeai/conversations
     volumes:
       - /home/afeai/conversations:/home/afeai/conversations:ro
       - /home/afeai/VOICE-2channel:/home/afeai/VOICE-2channel:ro  # Mount voice folder
