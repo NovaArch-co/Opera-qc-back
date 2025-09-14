@@ -55,6 +55,9 @@ export class SessionEventController {
 
     public createSessionEvent = async (req: Request, res: Response) => {
         try {
+            // Log every API call received
+            console.log(`[API_CALL_RECEIVED] sessionReceived endpoint called at ${new Date().toISOString()}`);
+
             const {
                 type,
                 source_channel,
@@ -73,8 +76,12 @@ export class SessionEventController {
                 msg
             } = req.body;
 
+            // Log the call details
+            console.log(`[API_CALL_DETAILS] Type: ${type}, Filename: ${filename}, Date: ${date}, Source: ${source_number}, Dest: ${dest_number}`);
+
             // Validate required fields
             if (!type || !source_channel || !source_number || !queue || !dest_channel || !dest_number || !date || !duration || !filename) {
+                console.log(`[API_CALL_REJECTED] Missing required fields for filename: ${filename}`);
                 return res.status(StatusCodes.BAD_REQUEST).json({
                     success: false,
                     message: "Missing required fields",
@@ -85,7 +92,7 @@ export class SessionEventController {
 
             // Check if the call is incoming, otherwise skip processing
             if (type !== 'incoming') {
-                console.log(`Skipping processing for non-incoming call type: ${type}, filename: ${filename}`);
+                console.log(`[API_CALL_SKIPPED] Non-incoming call type: ${type}, filename: ${filename}`);
                 return res.status(StatusCodes.OK).json({
                     success: true,
                     message: "Non-incoming call received. No processing performed.",
@@ -97,7 +104,7 @@ export class SessionEventController {
                 });
             }
 
-            console.log(`Processing incoming call, filename: ${filename}`);
+            console.log(`[API_CALL_ACCEPTED] Processing incoming call, filename: ${filename}`);
 
             // Convert date to ISO format
             const isoDate = moment(date, 'YYYY-MM-DD HH:mm:ss').toDate();
@@ -122,6 +129,8 @@ export class SessionEventController {
                 msg: msg || "New call session"
             });
 
+            console.log(`[API_CALL_QUEUED] Job queued successfully with ID: ${job.id}, filename: ${filename}`);
+
             return res.status(StatusCodes.OK).json({
                 success: true,
                 message: "Session event processing started (sequential processing)",
@@ -133,6 +142,7 @@ export class SessionEventController {
                 statusCode: StatusCodes.OK
             });
         } catch (error) {
+            console.log(`[API_CALL_ERROR] Error creating session event: ${error}`);
             console.error('Error creating session event:', error);
             return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
                 success: false,
