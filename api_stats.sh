@@ -62,6 +62,18 @@ echo "Transcription API errors:     $TRANSCRIPTION_ERRORS"
 echo "Session events created:       $SESSION_CREATED"
 echo "Files uploaded to MinIO:      $FILES_UPLOADED"
 
+# Transcription queue statistics
+TRANSCRIPTION_JOBS_QUEUED=$(echo "$LOGS" | grep "Queuing transcription job" | wc -l)
+TRANSCRIPTION_JOBS_COMPLETED=$(echo "$LOGS" | grep "Transcription job.*completed successfully" | wc -l)
+TRANSCRIPTION_JOBS_FAILED=$(echo "$LOGS" | grep "Transcription job.*failed" | wc -l)
+
+echo ""
+echo "📝 TRANSCRIPTION PROCESSING:"
+echo "---------------------------"
+echo "Transcription jobs queued:    $TRANSCRIPTION_JOBS_QUEUED"
+echo "Transcription jobs completed: $TRANSCRIPTION_JOBS_COMPLETED"
+echo "Transcription jobs failed:    $TRANSCRIPTION_JOBS_FAILED"
+
 echo ""
 echo "📅 RECENT ACTIVITY:"
 echo "------------------"
@@ -77,7 +89,7 @@ echo "🚨 RECENT ERRORS:"
 echo "----------------"
 
 # Show recent errors
-RECENT_ERRORS=$(echo "$LOGS" | grep -E "\[API_CALL_ERROR\]|One or both files not found|Error sending files to transcription API" | tail -5)
+RECENT_ERRORS=$(echo "$LOGS" | grep -E "\[API_CALL_ERROR\]|One or both files not found|Error sending files to transcription API|Transcription job.*failed" | tail -5)
 if [ -n "$RECENT_ERRORS" ]; then
     echo "$RECENT_ERRORS" | while read line; do
         echo "  ⚠️  $line"

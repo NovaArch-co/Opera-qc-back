@@ -6,8 +6,8 @@ import { S3Client, PutObjectCommand, HeadBucketCommand, CreateBucketCommand } fr
 import path from 'node:path';
 import fs from 'fs';
 import os from 'os';
-import { uploadToMinIO, sendFilesToTranscriptionAPI, sendToAnalysisAPI } from '@/api/session/session';
-import { TranscriptionResponseSchema, AnalysisResponseSchema } from '@/api/session/sessionModel';
+import { uploadToMinIO } from '@/api/session/session';
+import { addTranscriptionJob } from './transcriptionQueue';
 
 const prisma = new PrismaClient();
 
@@ -91,9 +91,6 @@ export const sequentialWorker = new Worker(
             switch (type) {
                 case 'process-session':
                     return await processSessionJob(data);
-
-                case 'analyze-audio':
-                    return await analyzeAudioJob(data);
 
                 default:
                     console.log(`Unknown job type: ${type}`);
@@ -286,106 +283,18 @@ async function processSessionJob(jobData: any) {
 
         console.log("Created session event:", sessionEvent);
 
-        // Now add a job to analyze the audio (this will be picked up next in sequence)
-        await addSequentialJob('analyze-audio', {
-            sessionEventId: sessionEvent.id,
-            customerFilePath,
-            agentFilePath,
-            filename
-        });
+        // Queue transcription job in the dedicated transcription queue (non-blocking)
+        await addTranscriptionJob(sessionEvent.id, customerFilePath, agentFilePath, filename);
 
-        // Clean up resources for this part
+        console.log(`Fast processing completed for session ${sessionEvent.id}, transcription queued`);
+
         return {
             success: true,
             sessionEventId: sessionEvent.id,
-            message: "Session processing completed, analysis queued"
+            message: "Session processing completed quickly, transcription queued in background"
         };
     } catch (error) {
         console.error("Error processing session:", error);
-        throw error;
-    }
-}
-
-// Processing function for audio analysis jobs
-async function analyzeAudioJob(jobData: any) {
-    try {
-        const { sessionEventId, customerFilePath, agentFilePath, filename } = jobData;
-
-        console.log(`Analyzing audio files for session ${sessionEventId}`);
-
-        // Send files to the combined process API endpoint that handles both transcription and analysis
-        console.log("Sending files to process API...");
-        const processResult = await sendFilesToTranscriptionAPI(customerFilePath, agentFilePath);
-        console.log("Process Result:", processResult);
-
-        if (!processResult) {
-            return {
-                success: false,
-                error: "Audio processing failed"
-            };
-        }
-
-        // The sendToAnalysisAPI now just returns the same processResult since analysis is included
-        const analysisResult = await sendToAnalysisAPI(processResult);
-
-        // Parse and validate the process result against our schema
-        const parsedProcess = TranscriptionResponseSchema.safeParse(processResult);
-        if (!parsedProcess.success) {
-            console.error("Invalid Process Data:", parsedProcess.error.format());
-            return {
-                success: false,
-                error: "Invalid process data"
-            };
-        }
-
-        // Now update the session event with the process results
-        try {
-            const transcriptionData = processResult.transcription;
-            const analysisData = processResult.analysis || {};
-
-            // Update the session event with the data from the process API
-            const updatedSessionEvent = await prisma.sessionEvent.update({
-                where: { id: sessionEventId },
-                data: {
-                    incommingfileUrl: `/${BUCKET_NAME}/${filename}-in.wav`,
-                    outgoingfileUrl: `/${BUCKET_NAME}/${filename}-out.wav`,
-                    transcription: processResult, // Store the complete process result
-                    explanation: analysisData.explanation?.[0] || null,
-                    // These fields might not be present in the new API format, so set them to null/defaults
-                    category: null,
-                    topic: analysisData.topic || null,
-                    emotion: null,
-                    keyWords: [], // No key_words in the new format
-                    routinCheckStart: null,
-                    routinCheckEnd: null,
-                    forbiddenWords: {}, // No forbidden_words in the new format
-                }
-            });
-
-            console.log("Updated session event with process results:", updatedSessionEvent.id);
-
-            // Clean up temp files
-            try {
-                fs.unlinkSync(customerFilePath);
-                fs.unlinkSync(agentFilePath);
-            } catch (cleanupError) {
-                console.error("Error cleaning up temp files:", cleanupError);
-            }
-
-            return {
-                success: true,
-                sessionEventId,
-                message: "Audio analysis completed successfully"
-            };
-        } catch (dbError) {
-            console.error("Error updating database with process results:", dbError);
-            return {
-                success: false,
-                error: "Database update failed"
-            };
-        }
-    } catch (error) {
-        console.error("Error analyzing audio:", error);
         throw error;
     }
 } 

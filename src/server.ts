@@ -17,6 +17,7 @@ import { sessionEventRouter } from "@/api/session/sessionRouter";
 import expressBasicAuth from "express-basic-auth";
 import { sessionWorker } from '@/queue/sessionQueue';
 import { sequentialWorker } from '@/queue/sequentialQueue';
+import { transcriptionWorker } from '@/queue/transcriptionQueue';
 import { sequentialRouter } from "@/api/sequential/sequentialRouter";
 import { audioRouter } from "./api/audio/audioRouter";
 
@@ -91,5 +92,14 @@ sessionWorker.on('failed', (job: any, err: any) => {
 
 // No need to set up event handlers for sequential worker here
 // as they are already defined in the sequentialQueue.ts file
+
+// Initialize transcription worker
+transcriptionWorker.on('completed', (job: any) => {
+    console.log(`Transcription job ${job.id} completed successfully`);
+});
+
+transcriptionWorker.on('failed', (job: any, err: any) => {
+    console.error(`Transcription job ${job?.id} failed with error:`, err);
+});
 
 export { app, logger };
