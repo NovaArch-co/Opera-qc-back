@@ -160,7 +160,7 @@ if [ ! -z "$DB_TOTAL" ] && [[ "$DB_TOTAL" =~ ^[0-9]+$ ]]; then
     echo "📈 RECENT DATABASE ACTIVITY:"
     echo "---------------------------"
     
-    # Get most recent records
+    # Get most recent records using correct schema
     RECENT_RECORDS=$(docker exec -e PGPASSWORD="StrongP@ssw0rd123" postgres psql -U postgres -d opera_qc -t -A -c "
     SELECT 
         TO_CHAR(date, 'YYYY-MM-DD HH24:MI:SS') as call_time,
