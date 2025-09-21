@@ -104,12 +104,65 @@ if [ ! -z "$DB_TOTAL" ] && [[ "$DB_TOTAL" =~ ^[0-9]+$ ]]; then
         SUCCESS_RATE=$(echo "scale=1; $DB_TOTAL * 100 / $TOTAL_RECEIVED" | bc -l 2>/dev/null || echo "N/A")
         echo "Processing success rate:      $SUCCESS_RATE%"
     fi
+
+    echo ""
+    echo "📊 DATABASE RECORDS BY DAY:"
+    echo "---------------------------"
+    
+    # Get daily database records for last 15 days
+    DB_DAILY=$(docker exec -e PGPASSWORD="StrongP@ssw0rd123" postgres psql -U postgres -d opera_qc -t -A -c "
+    SELECT 
+        DATE(date) as day,
+        COUNT(*) as total,
+        COUNT(CASE WHEN type = 'incoming' THEN 1 END) as incoming,
+        COUNT(CASE WHEN type = 'outgoing' THEN 1 END) as outgoing,
+        COUNT(CASE WHEN transcription IS NOT NULL THEN 1 END) as transcribed
+    FROM \"SessionEvent\" 
+    WHERE date >= CURRENT_DATE - INTERVAL '15 days'
+    GROUP BY DATE(date) 
+    ORDER BY day DESC;" 2>/dev/null)
+
+    if [ ! -z "$DB_DAILY" ]; then
+        echo "Date         | Total | Incoming | Outgoing | Transcribed"
+        echo "-------------|-------|----------|----------|------------"
+        echo "$DB_DAILY" | while IFS='|' read -r day total incoming outgoing transcribed; do
+            printf "%-12s | %-5s | %-8s | %-8s | %-11s\n" "$day" "$total" "$incoming" "$outgoing" "$transcribed"
+        done
+    else
+        echo "Could not retrieve daily database statistics"
+    fi
+
+    echo ""
+    echo "📈 RECENT DATABASE ACTIVITY:"
+    echo "---------------------------"
+    
+    # Get most recent records
+    RECENT_RECORDS=$(docker exec -e PGPASSWORD="StrongP@ssw0rd123" postgres psql -U postgres -d opera_qc -t -A -c "
+    SELECT 
+        TO_CHAR(date, 'YYYY-MM-DD HH24:MI:SS') as call_time,
+        type,
+        source_number,
+        dest_number,
+        CASE WHEN transcription IS NOT NULL THEN 'Yes' ELSE 'No' END as transcribed
+    FROM \"SessionEvent\" 
+    ORDER BY date DESC 
+    LIMIT 5;" 2>/dev/null)
+
+    if [ ! -z "$RECENT_RECORDS" ]; then
+        echo "Last 5 database records:"
+        echo "Call Time           | Type     | From         | To           | Transcribed"
+        echo "--------------------|----------|--------------|--------------|------------"
+        echo "$RECENT_RECORDS" | while IFS='|' read -r call_time type source dest transcribed; do
+            printf "%-19s | %-8s | %-12s | %-12s | %-11s\n" "$call_time" "$type" "$source" "$dest" "$transcribed"
+        done
+    fi
+
 else
     echo "Database connection failed - skipping DB comparison"
     echo "API calls that reached us:    $TOTAL_RECEIVED"
     echo ""
     echo "Note: You can check database manually with:"
-    echo "docker exec -it postgres psql -U postgres -d opera_qc -c \"SELECT COUNT(*) FROM \\\"SessionEvent\\\";\""
+    echo "docker exec -e PGPASSWORD=\"StrongP@ssw0rd123\" postgres psql -U postgres -d opera_qc -c \"SELECT COUNT(*) FROM \\\"SessionEvent\\\";\""
 fi
 
 echo ""
