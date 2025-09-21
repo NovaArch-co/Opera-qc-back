@@ -75,14 +75,22 @@ echo ""
 echo "📈 DATABASE vs API COMPARISON:"
 echo "-----------------------------"
 
-# Get database counts
-DB_TOTAL=$(docker exec -it postgres psql -U postgres -d opera_qc -c "SELECT COUNT(*) FROM \"SessionEvent\";" | grep -o '[0-9]*' | head -1)
-echo "Database records created:     $DB_TOTAL"
-echo "API calls that reached us:    $TOTAL_RECEIVED"
+# Get database counts with timeout
+echo "Checking database records..."
+DB_TOTAL=$(timeout 30 docker exec postgres psql -U postgres -d opera_qc -c "SELECT COUNT(*) FROM \"SessionEvent\";" 2>/dev/null | grep -o '[0-9]*' | head -1)
 
-if [ $TOTAL_RECEIVED -gt 0 ] && [ $DB_TOTAL -gt 0 ]; then
-    SUCCESS_RATE=$(echo "scale=1; $DB_TOTAL * 100 / $TOTAL_RECEIVED" | bc -l 2>/dev/null || echo "N/A")
-    echo "Processing success rate:      $SUCCESS_RATE%"
+if [ $? -eq 0 ] && [ ! -z "$DB_TOTAL" ]; then
+    echo "Database records created:     $DB_TOTAL"
+    echo "API calls that reached us:    $TOTAL_RECEIVED"
+    
+    if [ $TOTAL_RECEIVED -gt 0 ] && [ $DB_TOTAL -gt 0 ]; then
+        SUCCESS_RATE=$(echo "scale=1; $DB_TOTAL * 100 / $TOTAL_RECEIVED" | bc -l 2>/dev/null || echo "N/A")
+        echo "Processing success rate:      $SUCCESS_RATE%"
+    fi
+else
+    echo "Database query timed out or failed"
+    echo "API calls that reached us:    $TOTAL_RECEIVED"
+    echo "Database check:               Failed (timeout/connection issue)"
 fi
 
 echo ""
