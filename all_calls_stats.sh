@@ -112,24 +112,48 @@ if [ ! -z "$DB_TOTAL" ] && [[ "$DB_TOTAL" =~ ^[0-9]+$ ]]; then
     # Get daily database records for last 15 days
     DB_DAILY=$(docker exec -e PGPASSWORD="StrongP@ssw0rd123" postgres psql -U postgres -d opera_qc -t -A -c "
     SELECT 
-        DATE(date) as day,
-        COUNT(*) as total,
-        COUNT(CASE WHEN type = 'incoming' THEN 1 END) as incoming,
-        COUNT(CASE WHEN type = 'outgoing' THEN 1 END) as outgoing,
-        COUNT(CASE WHEN transcription IS NOT NULL THEN 1 END) as transcribed
+        DATE(date)::text as day,
+        COUNT(*)::text as total,
+        COUNT(CASE WHEN type = 'incoming' THEN 1 END)::text as incoming,
+        COUNT(CASE WHEN type = 'outgoing' THEN 1 END)::text as outgoing,
+        COUNT(CASE WHEN transcription IS NOT NULL THEN 1 END)::text as transcribed
     FROM \"SessionEvent\" 
-    WHERE date >= CURRENT_DATE - INTERVAL '15 days'
+    WHERE date >= NOW() - INTERVAL '15 days'
     GROUP BY DATE(date) 
-    ORDER BY day DESC;" 2>/dev/null)
+    ORDER BY DATE(date) DESC;" 2>&1)
 
-    if [ ! -z "$DB_DAILY" ]; then
+    if [ ! -z "$DB_DAILY" ] && [[ ! "$DB_DAILY" =~ ERROR ]]; then
         echo "Date         | Total | Incoming | Outgoing | Transcribed"
         echo "-------------|-------|----------|----------|------------"
         echo "$DB_DAILY" | while IFS='|' read -r day total incoming outgoing transcribed; do
-            printf "%-12s | %-5s | %-8s | %-8s | %-11s\n" "$day" "$total" "$incoming" "$outgoing" "$transcribed"
+            if [ ! -z "$day" ]; then
+                printf "%-12s | %-5s | %-8s | %-8s | %-11s\n" "$day" "$total" "$incoming" "$outgoing" "$transcribed"
+            fi
         done
     else
         echo "Could not retrieve daily database statistics"
+        echo "Debug info: $DB_DAILY"
+        echo ""
+        echo "Trying simpler query..."
+        # Try a simpler query to see recent data
+        SIMPLE_DAILY=$(docker exec -e PGPASSWORD="StrongP@ssw0rd123" postgres psql -U postgres -d opera_qc -t -A -c "
+        SELECT 
+            DATE(date),
+            COUNT(*)
+        FROM \"SessionEvent\" 
+        WHERE date >= '2025-09-15'
+        GROUP BY DATE(date) 
+        ORDER BY DATE(date) DESC 
+        LIMIT 10;" 2>&1)
+        
+        if [ ! -z "$SIMPLE_DAILY" ] && [[ ! "$SIMPLE_DAILY" =~ ERROR ]]; then
+            echo "Recent days (simplified):"
+            echo "$SIMPLE_DAILY" | while IFS='|' read -r day count; do
+                if [ ! -z "$day" ]; then
+                    printf "%-12s: %s records\n" "$day" "$count"
+                fi
+            done
+        fi
     fi
 
     echo ""
