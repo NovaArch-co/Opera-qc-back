@@ -14,7 +14,7 @@ echo "-----------------------------------"
 
 # Try a very simple query first
 echo "Checking recent records..."
-RECENT_COUNT=$(docker exec postgres psql -U postgres -d opera_qc -t -A -c "SELECT COUNT(*) FROM \"SessionEvent\" WHERE date >= '2025-09-15';" 2>/dev/null)
+RECENT_COUNT=$(docker exec -e PGPASSWORD="StrongP@ssw0rd123" postgres psql -U postgres -d opera_qc -t -A -c "SELECT COUNT(*) FROM \"SessionEvent\" WHERE date >= '2025-09-15';" 2>/dev/null)
 
 if [ ! -z "$RECENT_COUNT" ]; then
     echo "Records since 2025-09-15: $RECENT_COUNT"
@@ -30,21 +30,21 @@ echo "-----------------------------------"
 for i in {0..9}; do
     TARGET_DATE=$(date -d "$i days ago" +%Y-%m-%d)
     
-    COUNT=$(docker exec postgres psql -U postgres -d opera_qc -t -A -c "
+    COUNT=$(docker exec -e PGPASSWORD="StrongP@ssw0rd123" postgres psql -U postgres -d opera_qc -t -A -c "
     SELECT COUNT(*) FROM \"SessionEvent\" 
     WHERE DATE(date) = '$TARGET_DATE';" 2>/dev/null)
     
     if [ ! -z "$COUNT" ] && [ "$COUNT" -gt 0 ]; then
         # Get breakdown by type
-        INCOMING=$(docker exec postgres psql -U postgres -d opera_qc -t -A -c "
+        INCOMING=$(docker exec -e PGPASSWORD="StrongP@ssw0rd123" postgres psql -U postgres -d opera_qc -t -A -c "
         SELECT COUNT(*) FROM \"SessionEvent\" 
         WHERE DATE(date) = '$TARGET_DATE' AND type = 'incoming';" 2>/dev/null)
         
-        OUTGOING=$(docker exec postgres psql -U postgres -d opera_qc -t -A -c "
+        OUTGOING=$(docker exec -e PGPASSWORD="StrongP@ssw0rd123" postgres psql -U postgres -d opera_qc -t -A -c "
         SELECT COUNT(*) FROM \"SessionEvent\" 
         WHERE DATE(date) = '$TARGET_DATE' AND type = 'outgoing';" 2>/dev/null)
         
-        TRANSCRIBED=$(docker exec postgres psql -U postgres -d opera_qc -t -A -c "
+        TRANSCRIBED=$(docker exec -e PGPASSWORD="StrongP@ssw0rd123" postgres psql -U postgres -d opera_qc -t -A -c "
         SELECT COUNT(*) FROM \"SessionEvent\" 
         WHERE DATE(date) = '$TARGET_DATE' AND transcription IS NOT NULL;" 2>/dev/null)
         
@@ -57,10 +57,10 @@ echo ""
 echo "📈 TOTAL DATABASE SUMMARY:"
 echo "-------------------------"
 
-TOTAL=$(docker exec postgres psql -U postgres -d opera_qc -t -A -c "SELECT COUNT(*) FROM \"SessionEvent\";" 2>/dev/null)
-TOTAL_INCOMING=$(docker exec postgres psql -U postgres -d opera_qc -t -A -c "SELECT COUNT(*) FROM \"SessionEvent\" WHERE type = 'incoming';" 2>/dev/null)
-TOTAL_OUTGOING=$(docker exec postgres psql -U postgres -d opera_qc -t -A -c "SELECT COUNT(*) FROM \"SessionEvent\" WHERE type = 'outgoing';" 2>/dev/null)
-TOTAL_TRANSCRIBED=$(docker exec postgres psql -U postgres -d opera_qc -t -A -c "SELECT COUNT(*) FROM \"SessionEvent\" WHERE transcription IS NOT NULL;" 2>/dev/null)
+TOTAL=$(docker exec -e PGPASSWORD="StrongP@ssw0rd123" postgres psql -U postgres -d opera_qc -t -A -c "SELECT COUNT(*) FROM \"SessionEvent\";" 2>/dev/null)
+TOTAL_INCOMING=$(docker exec -e PGPASSWORD="StrongP@ssw0rd123" postgres psql -U postgres -d opera_qc -t -A -c "SELECT COUNT(*) FROM \"SessionEvent\" WHERE type = 'incoming';" 2>/dev/null)
+TOTAL_OUTGOING=$(docker exec -e PGPASSWORD="StrongP@ssw0rd123" postgres psql -U postgres -d opera_qc -t -A -c "SELECT COUNT(*) FROM \"SessionEvent\" WHERE type = 'outgoing';" 2>/dev/null)
+TOTAL_TRANSCRIBED=$(docker exec -e PGPASSWORD="StrongP@ssw0rd123" postgres psql -U postgres -d opera_qc -t -A -c "SELECT COUNT(*) FROM \"SessionEvent\" WHERE transcription IS NOT NULL;" 2>/dev/null)
 
 echo "Total records:           $TOTAL"
 echo "Total incoming:          $TOTAL_INCOMING"
@@ -76,7 +76,7 @@ echo ""
 echo "🕒 MOST RECENT DATABASE ENTRIES:"
 echo "--------------------------------"
 
-docker exec postgres psql -U postgres -d opera_qc -c "
+docker exec -e PGPASSWORD="StrongP@ssw0rd123" postgres psql -U postgres -d opera_qc -c "
 SELECT 
     date,
     type,
