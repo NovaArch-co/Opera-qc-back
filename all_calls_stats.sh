@@ -75,11 +75,28 @@ echo ""
 echo "📈 DATABASE vs API COMPARISON:"
 echo "-----------------------------"
 
-# Get database counts with timeout
+# Try to get database counts using different methods
 echo "Checking database records..."
-DB_TOTAL=$(timeout 30 docker exec postgres psql -U postgres -d opera_qc -c "SELECT COUNT(*) FROM \"SessionEvent\";" 2>/dev/null | grep -o '[0-9]*' | head -1)
 
-if [ $? -eq 0 ] && [ ! -z "$DB_TOTAL" ]; then
+# First try with the postgres container using password
+export PGPASSWORD="StrongP@ssw0rd123"
+DB_TOTAL=$(docker exec postgres psql -U postgres -d opera_qc -t -A -c "SELECT COUNT(*) FROM \"SessionEvent\";" 2>/dev/null | head -1)
+
+# If that fails, try interactive mode
+if [ -z "$DB_TOTAL" ]; then
+    DB_TOTAL=$(docker exec -i postgres psql -U postgres -d opera_qc -t -A << EOF 2>/dev/null | head -1
+SELECT COUNT(*) FROM "SessionEvent";
+EOF
+)
+fi
+
+# If still fails, try with environment variable
+if [ -z "$DB_TOTAL" ]; then
+    DB_TOTAL=$(docker exec -e PGPASSWORD="StrongP@ssw0rd123" postgres psql -U postgres -d opera_qc -t -A -c "SELECT COUNT(*) FROM \"SessionEvent\";" 2>/dev/null | head -1)
+fi
+
+# If still no result, skip database check
+if [ ! -z "$DB_TOTAL" ] && [[ "$DB_TOTAL" =~ ^[0-9]+$ ]]; then
     echo "Database records created:     $DB_TOTAL"
     echo "API calls that reached us:    $TOTAL_RECEIVED"
     
@@ -88,9 +105,11 @@ if [ $? -eq 0 ] && [ ! -z "$DB_TOTAL" ]; then
         echo "Processing success rate:      $SUCCESS_RATE%"
     fi
 else
-    echo "Database query timed out or failed"
+    echo "Database connection failed - skipping DB comparison"
     echo "API calls that reached us:    $TOTAL_RECEIVED"
-    echo "Database check:               Failed (timeout/connection issue)"
+    echo ""
+    echo "Note: You can check database manually with:"
+    echo "docker exec -it postgres psql -U postgres -d opera_qc -c \"SELECT COUNT(*) FROM \\\"SessionEvent\\\";\""
 fi
 
 echo ""
