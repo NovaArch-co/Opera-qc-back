@@ -6,6 +6,7 @@ import { S3Client, PutObjectCommand, HeadBucketCommand, CreateBucketCommand } fr
 import path from 'node:path';
 import fs from 'fs';
 import os from 'os';
+import moment from 'moment-jalaali';
 import { uploadToMinIO } from '@/api/session/session';
 import { addTranscriptionJob } from './transcriptionQueue';
 
@@ -260,6 +261,10 @@ async function processSessionJob(jobData: any) {
         console.log("Uploaded agent file to MinIO:", agentKey);
 
         // Create session event in database
+        // Convert Persian date to proper JavaScript Date object
+        const convertedDate = moment(date, 'YYYY-MM-DD HH:mm:ss').toDate();
+        console.log(`Converting Persian date "${date}" to: ${convertedDate.toISOString()}`);
+
         const sessionEvent = await prisma.sessionEvent.create({
             data: {
                 level: 30, // Default log level (info)
@@ -274,7 +279,7 @@ async function processSessionJob(jobData: any) {
                 queue: queueValue,
                 destChannel: destChannelValue,
                 destNumber: destNumberValue,
-                date: new Date(date),
+                date: convertedDate,
                 duration,
                 filename,
                 keyWords: [] // Initialize with empty array
