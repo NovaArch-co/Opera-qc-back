@@ -24,8 +24,8 @@ SELECT
         WHEN transcription IS NOT NULL THEN '✅ Transcribed'
         ELSE '❌ Not Transcribed'
     END as transcription_status,
-    "incommingfileUrl",
-    "outgoingfileUrl",
+    incommingfileUrl,
+    outgoingfileUrl,
     date,
     EXTRACT(HOUR FROM date) as hour
 FROM \"SessionEvent\" 
@@ -42,9 +42,9 @@ echo "---------------------------------------------"
 docker exec -e PGPASSWORD='StrongP@ssw0rd123' postgres psql -U postgres -d opera_qc -c "
 SELECT 
     COUNT(*) as total_transcribed,
-    COUNT(CASE WHEN "incommingfileUrl" IS NOT NULL THEN 1 END) as with_incoming_url,
-    COUNT(CASE WHEN "outgoingfileUrl" IS NOT NULL THEN 1 END) as with_outgoing_url,
-    COUNT(CASE WHEN "incommingfileUrl" IS NOT NULL AND "outgoingfileUrl" IS NOT NULL THEN 1 END) as with_both_urls,
+    COUNT(CASE WHEN incommingfileUrl IS NOT NULL THEN 1 END) as with_incoming_url,
+    COUNT(CASE WHEN outgoingfileUrl IS NOT NULL THEN 1 END) as with_outgoing_url,
+    COUNT(CASE WHEN incommingfileUrl IS NOT NULL AND outgoingfileUrl IS NOT NULL THEN 1 END) as with_both_urls,
     MIN(EXTRACT(HOUR FROM date)) as earliest_hour,
     MAX(EXTRACT(HOUR FROM date)) as latest_hour
 FROM \"SessionEvent\" 
