@@ -288,6 +288,22 @@ async function processSessionJob(jobData: any) {
 
         console.log("Created session event:", sessionEvent);
 
+        // 🔧 FIX: Save URLs to database immediately after MinIO upload
+        // This ensures URLs are saved even if transcription fails
+        try {
+            const updatedSessionEvent = await prisma.sessionEvent.update({
+                where: { id: sessionEvent.id },
+                data: {
+                    incommingfileUrl: `/${BUCKET_NAME}/${baseFileName}-in.wav`,
+                    outgoingfileUrl: `/${BUCKET_NAME}/${baseFileName}-out.wav`
+                }
+            });
+            console.log(`✅ Saved URLs to database for session ${sessionEvent.id}`);
+        } catch (urlError) {
+            console.error(`❌ Failed to save URLs for session ${sessionEvent.id}:`, urlError);
+            // Don't fail the entire process, just log the error
+        }
+
         // Queue transcription job in the dedicated transcription queue (non-blocking)
         await addTranscriptionJob(sessionEvent.id, customerFilePath, agentFilePath, filename);
 
