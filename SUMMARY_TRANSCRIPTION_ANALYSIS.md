@@ -161,3 +161,4 @@ If this returns a token, the API is working and you can proceed with the search.
 **The bottom line**: Your system DOES store transcriptions in the database, and you have the tools to check for calls on any specific date. The `/api/event` endpoint is your best option for efficient searching.
 
 
+
