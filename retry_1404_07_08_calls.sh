@@ -17,7 +17,7 @@ FAILED_CALLS=$(docker exec -e PGPASSWORD='StrongP@ssw0rd123' postgres psql -U po
 SELECT COUNT(*) FROM \"SessionEvent\" 
 WHERE DATE(date) = '1404-07-08' 
 AND transcription IS NULL 
-AND \"incomingfileUrl\" IS NOT NULL 
+AND \"incommingfileUrl\" IS NOT NULL 
 AND \"outgoingfileUrl\" IS NOT NULL;
 " | tr -d ' ')
 
@@ -36,7 +36,7 @@ SELECT id, filename, date
 FROM \"SessionEvent\" 
 WHERE DATE(date) = '1404-07-08' 
 AND transcription IS NULL 
-AND \"incomingfileUrl\" IS NOT NULL 
+AND \"incommingfileUrl\" IS NOT NULL 
 AND \"outgoingfileUrl\" IS NOT NULL
 ORDER BY date 
 LIMIT 5;
@@ -54,7 +54,7 @@ docker exec -e PGPASSWORD='StrongP@ssw0rd123' postgres psql -U postgres -d opera
 SELECT id FROM \"SessionEvent\" 
 WHERE DATE(date) = '1404-07-08' 
 AND transcription IS NULL 
-AND \"incomingfileUrl\" IS NOT NULL 
+AND \"incommingfileUrl\" IS NOT NULL 
 AND \"outgoingfileUrl\" IS NOT NULL
 ORDER BY date;
 " > /tmp/failed_call_ids.txt
