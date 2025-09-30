@@ -135,7 +135,7 @@ export const transcriptionWorker = new Worker(
             port: env.REDIS_PORT,
         },
         // Higher concurrency for transcription processing
-        concurrency: 15,
+        concurrency: 30,
         removeOnComplete: { count: 1000 },
         removeOnFail: { count: 5000 }
     }
