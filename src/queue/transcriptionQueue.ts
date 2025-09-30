@@ -30,7 +30,7 @@ export const transcriptionWorker = new Worker(
     async (job) => {
         try {
             console.log(`Starting transcription job ${job.id} for session ${job.data.sessionEventId}`);
-            
+
             const { sessionEventId, customerFilePath, agentFilePath, filename } = job.data;
 
             // Check if files exist
@@ -135,7 +135,7 @@ export const transcriptionWorker = new Worker(
             port: env.REDIS_PORT,
         },
         // Higher concurrency for transcription processing
-        concurrency: 3,
+        concurrency: 15,
         removeOnComplete: { count: 1000 },
         removeOnFail: { count: 5000 }
     }
@@ -157,7 +157,7 @@ transcriptionWorker.on('failed', (job, error) => {
 // Helper function to add a transcription job
 export async function addTranscriptionJob(sessionEventId: number, customerFilePath: string, agentFilePath: string, filename: string, options = {}) {
     console.log(`Queuing transcription job for session ${sessionEventId}`);
-    
+
     return await transcriptionQueue.add('transcribe-audio', {
         sessionEventId,
         customerFilePath,
