@@ -1,0 +1,38 @@
+# Environment Configuration
+NODE_ENV="development" # Options: 'development', 'production'
+PORT="8081"            # The port your server will listen on
+HOST="0.0.0.0"       # Hostname for the server
+
+# CORS Settings
+CORS_ORIGIN="http://localhost:3000,http://localhost:5173" # Allowed origins
+SWAGGER_URL="https://qc.novaarchai.com"
+
+# Rate Limiting
+COMMON_RATE_LIMIT_WINDOW_MS="1000" # Window size for rate limiting (ms)
+COMMON_RATE_LIMIT_MAX_REQUESTS="1000" # Max number of requests per window per IP
+
+# File server base URL for incoming calls (append filename suffix -in/-out)
+FILE_SERVER_BASE_URL="http://94.182.56.132/tmp/two-channel/stream-audio-incoming.php?recfile="
+
+# Redis / Queue
+REDIS_HOST="redis"
+REDIS_PORT=6379
+BULL_QUEUE="analyseCalls"
+
+# Database
+POSTGRES_HOST="postgres"
+POSTGRES_PORT=5432
+POSTGRES_DB="opera_qc_db"
+POSTGRES_USER="postgres"
+POSTGRES_PASSWORD="postgres"
+DATABASE_URL="postgresql://postgres:postgres@postgres:5432/opera_qc_db"
+
+# JWT
+JWT_SECRET="your-secret-key"
+JWT_REFRESH_SECRET="your-refresh-secret-key"
+JWT_EXPIRES_IN="1d"
+
+# MinIO
+MINIO_ENDPOINT_UTL="http://minio:9000"
+MINIO_ACCESS_KEY="minioaccesskey"
+MINIO_SECRET_KEY="miniosecretkey"

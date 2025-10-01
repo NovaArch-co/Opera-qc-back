@@ -16,40 +16,37 @@ import axios from "axios";
 import { addSequentialJob } from "@/queue/sequentialQueue";
 import os from "node:os";
 
+
 const sessionQueue = new Queue(env.BULL_QUEUE, {
     connection: {
         host: env.REDIS_HOST,
-        port: env.REDIS_PORT,
+        port: Number(env.REDIS_PORT),
     }
 });
 
 const prismaClient = new PrismaClient();
 
 // Fix MinIO endpoint configuration - add protocol if missing
+
 const getMinioEndpoint = () => {
-    const endpoint = env.MINIO_ENDPOINT_UTL || 'localhost';
-
-    // If endpoint already includes protocol, return as is
-    if (endpoint.startsWith('http://') || endpoint.startsWith('https://')) {
-        return endpoint;
-    }
-
-    // Otherwise, add http:// protocol
-    return `http://${endpoint}`;
+    const endpoint = env.MINIO_ENDPOINT_UTL;
+    // envConfig.ts ensures protocol is present
+    return endpoint;
 };
+
 
 const s3Client = new S3Client({
     region: "us-east-1",
     endpoint: getMinioEndpoint(),
     credentials: {
-        accessKeyId: env.MINIO_ACCESS_KEY || "minioaccesskey",
-        secretAccessKey: env.MINIO_SECRET_KEY || "miniosecretkey",
+        accessKeyId: env.MINIO_ACCESS_KEY,
+        secretAccessKey: env.MINIO_SECRET_KEY,
     },
     forcePathStyle: true,
     tls: false,
 });
 
-const BUCKET_NAME = "audio-files";
+const BUCKET_NAME = process.env.MINIO_BUCKET_NAME || "audio-files";
 
 export class SessionEventController {
 
@@ -1152,7 +1149,7 @@ export const sendFilesToTranscriptionAPI = async (filePathIn: string, filePathOu
         form.append("agent", fs.createReadStream(filePathOut));
 
         // Updated endpoint URL
-        const response = await axios.post("http://31.184.134.153:8003/process/", form, {
+        const response = await axios.post("http://host.docker.internal:8003/process/", form, {
             headers: {
                 ...form.getHeaders(),
                 "accept": "application/json"

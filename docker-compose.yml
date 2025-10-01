@@ -3,6 +3,7 @@ services:
     image: docker.arvancloud.ir/redis:latest
     container_name: opera-qc-redis
     restart: always
+    platform: linux/amd64
     ports:
       - "6379:6379"
     volumes:
@@ -10,17 +11,29 @@ services:
     command: redis-server --appendonly yes
     networks:
       - app-network
-
+  swagger-ui:
+    image: swaggerapi/swagger-ui
+    container_name: swagger-ui
+    ports:
+      - "8082:8080"
+    environment:
+      SWAGGER_JSON: /openapi/swagger.json
+    volumes:
+      - ./openapi/swagger.json:/openapi/swagger.json:ro
+    networks:
+      - app-network
+      -
   minio:
     image: docker.arvancloud.ir/minio/minio
     container_name: minio
     restart: always
+    platform: linux/amd64
     environment:
       MINIO_ACCESS_KEY: minioaccesskey
       MINIO_SECRET_KEY: miniosecretkey
     ports:
-      - "9005:9000"   # host 9005 → container 9000 (data API)
-      - "9006:9006"   # host 9006 → container 9006 (Web UI)
+      - "9005:9000" # host 9005 → container 9000 (data API)
+      - "9006:9006" # host 9006 → container 9006 (Web UI)
     volumes:
       - minio_data:/data
     command: server /data --console-address ":9006"
@@ -31,6 +44,7 @@ services:
     image: bitnami/postgresql:17.2.0
     container_name: postgres
     restart: always
+    platform: linux/amd64
     environment:
       POSTGRESQL_DATABASE: ${POSTGRES_DB}
       POSTGRESQL_USERNAME: ${POSTGRES_USER}
@@ -48,11 +62,14 @@ services:
       retries: 5
     networks:
       - app-network
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
 
   app:
     build:
       context: .
       dockerfile: Dockerfile
+    platform: linux/amd64
     container_name: app
     restart: always
     ports:
@@ -97,6 +114,8 @@ services:
     command: sh -c "npx prisma generate && npx prisma migrate deploy && npm start"
     networks:
       - app-network
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
 
   # operaai:
   #   image: operaasr2:v1.1T
@@ -110,7 +129,6 @@ services:
   #   command: uvicorn main:app --host 0.0.0.0 --port 8000
   #   networks:
   #     - app-network
-
 
 networks:
   app-network:

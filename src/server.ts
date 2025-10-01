@@ -62,7 +62,7 @@ app.use(cors({
     allowedHeaders: ['Content-Type', 'Authorization'],
     credentials: true
 }));
-app.use(rateLimiter);
+// app.use(rateLimiter);
 
 // Request logging
 app.use(requestLogger);

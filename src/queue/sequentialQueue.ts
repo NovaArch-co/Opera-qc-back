@@ -196,8 +196,8 @@ async function processSessionJob(jobData: any) {
 
         // Use different base URLs based on the call type
         const fileServerBaseUrl = type === 'incoming'
-            ? `http://94.182.56.132/tmp/two-channel/stream-audio-incoming.php?recfile=`
-            : `http://94.182.56.132/tmp/two-channel/stream-audio-outgoing.php?recfile=`;
+            ? env.FILE_SERVER_BASE_URL
+            : env.FILE_SERVER_BASE_URL.replace('incoming', 'outgoing');
 
         // Download customer file (-in)
         const customerFileUrl = `${fileServerBaseUrl}${baseFileName}-in`;
