@@ -134,8 +134,8 @@ export const transcriptionWorker = new Worker(
             host: env.REDIS_HOST || 'localhost',
             port: env.REDIS_PORT,
         },
-        // Higher concurrency for transcription processing
-        concurrency: 30,
+        // GPU-safe concurrency - prevent VRAM exhaustion
+        concurrency: 2,
         removeOnComplete: { count: 1000 },
         removeOnFail: { count: 5000 }
     }

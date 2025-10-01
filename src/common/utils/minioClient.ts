@@ -3,7 +3,7 @@ import { env } from "./envConfig";
 
 const minioClient = new Client({
   endPoint: process.env.MINIO_ENDPOINT || "minio",
-  port: parseInt(process.env.MINIO_PORT || "9005"),
+  port: parseInt(process.env.MINIO_PORT || "9000"),
   useSSL: false,
   accessKey: process.env.MINIO_ACCESS_KEY || env.MINIO_ACCESS_KEY || "minioaccesskey",
   secretKey: process.env.MINIO_SECRET_KEY || env.MINIO_SECRET_KEY || "miniosecretkey",
