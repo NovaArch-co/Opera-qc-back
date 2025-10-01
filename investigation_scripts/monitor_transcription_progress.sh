@@ -60,6 +60,13 @@ calculate_rate() {
     local current=$1
     local previous=$2
     local time_diff=$3
+    
+    # Check if values are numeric
+    if ! [[ "$current" =~ ^[0-9]+$ ]] || ! [[ "$previous" =~ ^[0-9]+$ ]] || ! [[ "$time_diff" =~ ^[0-9]+$ ]]; then
+        echo "0"
+        return
+    fi
+    
     if [ "$time_diff" -gt 0 ] && [ "$current" -gt "$previous" ]; then
         local diff=$((current - previous))
         local rate=$(echo "scale=2; $diff * 60 / $time_diff" | bc -l 2>/dev/null || echo "0")
@@ -79,6 +86,10 @@ monitor_progress() {
     local total_1404_07_09=$(get_total_calls "1404-07-09")
     local current_1404_07_08=$(get_transcription_count "1404-07-08")
     local total_1404_07_08=$(get_total_calls "1404-07-08")
+    
+    # Calculate time difference
+    local current_time=$(date +%s)
+    local time_diff=$((current_time - previous_time))
     
     # Calculate rates
     local rate_1404_07_09=$(calculate_rate "$current_1404_07_09" "$previous_1404_07_09" "$time_diff")
@@ -127,17 +138,19 @@ monitor_progress() {
     # Display GPU status if nvidia-smi is available
     if command -v nvidia-smi &> /dev/null; then
         local gpu_usage=$(nvidia-smi --query-gpu=utilization.gpu --format=csv,noheader,nounits 2>/dev/null || echo "N/A")
-        local gpu_memory=$(nvidia-smi --query-gpu=memory.used,memory.total --format=csv,noheader,nounits 2>/dev/null || echo "N/A")
+        local gpu_memory_raw=$(nvidia-smi --query-gpu=memory.used,memory.total --format=csv,noheader,nounits 2>/dev/null || echo "N/A,N/A")
+        local gpu_memory_used=$(echo "$gpu_memory_raw" | cut -d',' -f1 | tr -d ' ')
+        local gpu_memory_total=$(echo "$gpu_memory_raw" | cut -d',' -f2 | tr -d ' ')
         echo -e "${BLUE}🎮 GPU Status:${NC}"
         echo -e "   Usage: ${YELLOW}${gpu_usage}%${NC}"
-        echo -e "   Memory: ${YELLOW}${gpu_memory}${NC}"
+        echo -e "   Memory: ${YELLOW}${gpu_memory_used}MiB / ${gpu_memory_total}MiB${NC}"
         echo ""
     fi
     
     # Update previous values for next iteration
     previous_1404_07_09=$current_1404_07_09
     previous_1404_07_08=$current_1404_07_08
-    previous_time=$(date +%s)
+    previous_time=$current_time
 }
 
 # Initialize variables
