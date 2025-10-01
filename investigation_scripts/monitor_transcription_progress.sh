@@ -50,8 +50,8 @@ get_queue_status() {
 
 # Function to get recent transcription activity
 get_recent_activity() {
-    local success_count=$(docker logs app --since="2m" 2>&1 | grep -c "Transcription job.*completed successfully" || echo "0")
-    local error_count=$(docker logs app --since="2m" 2>&1 | grep -c -i -E "(internal server error|audio processing failed)" || echo "0")
+    local success_count=$(docker logs app --since="2m" 2>&1 | grep -c "Transcription job.*completed successfully" 2>/dev/null || echo "0")
+    local error_count=$(docker logs app --since="2m" 2>&1 | grep -c -i -E "(internal server error|audio processing failed)" 2>/dev/null || echo "0")
     echo "$success_count|$error_count"
 }
 
@@ -127,8 +127,8 @@ monitor_progress() {
     
     # Display recent activity
     local activity=$(get_recent_activity)
-    local success_count=$(echo "$activity" | cut -d'|' -f1)
-    local error_count=$(echo "$activity" | cut -d'|' -f2)
+    local success_count=$(echo "$activity" | cut -d'|' -f1 | tr -d ' ')
+    local error_count=$(echo "$activity" | cut -d'|' -f2 | tr -d ' ')
     
     echo -e "${BLUE}⚡ Recent Activity (Last 2 minutes):${NC}"
     echo -e "   Successful: ${GREEN}$success_count${NC}"
