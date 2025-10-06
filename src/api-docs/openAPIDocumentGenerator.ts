@@ -31,7 +31,7 @@ export function generateOpenAPIDocument() {
     const generator = new OpenApiGeneratorV3(registry.definitions);
 
     // Fixed server URL - no environment variable
-    const serverUrl = "http://localhost:8081";
+    const serverUrl = "http://31.184.134.153:8081";
 
     return generator.generateDocument({
         openapi: "3.0.0",
