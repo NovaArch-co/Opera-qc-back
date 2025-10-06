@@ -65,27 +65,38 @@ export const transcriptionWorker = new Worker(
             const transcriptionResult = await sendFilesToTranscriptionAPI(customerFilePath, agentFilePath);
             console.log("ASR Result:", transcriptionResult);
 
-            if (!transcriptionResult) {
-                console.error(`ASR failed for session ${sessionEventId}`);
+            if (!transcriptionResult || typeof transcriptionResult.transcription !== "string" || !transcriptionResult.transcription) {
+                console.error(`ASR API did not return a valid transcription for session ${sessionEventId}:`, transcriptionResult);
                 return {
                     success: false,
-                    error: "ASR failed",
+                    error: "ASR API did not return a valid transcription",
                     sessionEventId
                 };
             }
+
+            // if (!transcriptionResult) {
+            //     console.error(`ASR failed for session ${sessionEventId}`);
+            //     return {
+            //         success: false,
+            //         error: "ASR failed",
+            //         sessionEventId
+            //     };
+            // }
 
             // Validate transcription result (optional, can be improved)
             const parsedProcess = TranscriptionResponseSchema.safeParse(transcriptionResult);
             if (!parsedProcess.success) {
+                console.log(parsedProcess)
                 console.error(`Invalid ASR Data for session ${sessionEventId}:`, parsedProcess.error.format());
-                return {
-                    success: false,
-                    error: "Invalid ASR data",
-                    sessionEventId
-                };
+                // return {
+                //     success: false,
+                //     error: "Invalid ASR data",
+                //     sessionEventId
+                // };
             }
 
             // Enqueue LLM job for analysis
+            console.log("Adding to LLM Queue")
             await llmQueue.add('analyze-transcription', {
                 sessionEventId,
                 transcriptionResult,
