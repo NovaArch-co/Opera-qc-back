@@ -111,7 +111,7 @@ export const sequentialWorker = new Worker(
             port: env.REDIS_PORT,
         },
         // The critical setting: concurrency 1 ensures jobs are processed one at a time
-        concurrency: 1,
+        concurrency: 4,
         removeOnComplete: { count: 1000 },
         removeOnFail: { count: 5000 }
     }

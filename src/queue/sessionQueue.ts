@@ -3,7 +3,7 @@ import { PrismaClient } from '@prisma/client';
 import { sendAudioRequests } from '@/api/session/session';
 import { uploadToMinIO } from '@/api/session/session';
 // import { sendFilesToTranscriptionAPI } from '@/api/session/session';
-// import { sendToAnalysisAPI } from '@/api/session/session';
+import { sendToAnalysisAPI } from '@/api/session/session';
 import { TranscriptionResponseSchema, AnalysisResponseSchema } from '@/api/session/sessionModel';
 import path from 'node:path';
 import { env } from '@/common/utils/envConfig';
