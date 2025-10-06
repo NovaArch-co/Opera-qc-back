@@ -67,11 +67,11 @@ export const transcriptionWorker = new Worker(
 
             if (!transcriptionResult || typeof transcriptionResult.transcription !== "string" || !transcriptionResult.transcription) {
                 console.error(`ASR API did not return a valid transcription for session ${sessionEventId}:`, transcriptionResult);
-                return {
-                    success: false,
-                    error: "ASR API did not return a valid transcription",
-                    sessionEventId
-                };
+                // return {
+                //     success: false,
+                //     error: "ASR API did not return a valid transcription",
+                //     sessionEventId
+                // };
             }
 
             // if (!transcriptionResult) {
