@@ -1,9 +1,8 @@
 services:
   redis:
-    image: docker.arvancloud.ir/redis:latest
+    image: redis:7
     container_name: opera-qc-redis
     restart: always
-    platform: linux/amd64
     ports:
       - "6379:6379"
     volumes:
@@ -15,19 +14,20 @@ services:
     image: swaggerapi/swagger-ui
     container_name: swagger-ui
     ports:
-      - "8082:8080"
+      - "8084:8080"
     environment:
       SWAGGER_JSON: /openapi/swagger.json
     volumes:
       - ./openapi/swagger.json:/openapi/swagger.json:ro
     networks:
       - app-network
-      -
+    env_file:
+      - container.env
+
   minio:
-    image: docker.arvancloud.ir/minio/minio
+    image: minio/minio
     container_name: minio
     restart: always
-    platform: linux/amd64
     environment:
       MINIO_ACCESS_KEY: minioaccesskey
       MINIO_SECRET_KEY: miniosecretkey
@@ -39,12 +39,13 @@ services:
     command: server /data --console-address ":9006"
     networks:
       - app-network
+    env_file:
+      - container.env
 
   postgres:
-    image: bitnami/postgresql:17.2.0
+    image: postgres:17.2
     container_name: postgres
     restart: always
-    platform: linux/amd64
     environment:
       POSTGRESQL_DATABASE: ${POSTGRES_DB}
       POSTGRESQL_USERNAME: ${POSTGRES_USER}
@@ -64,12 +65,13 @@ services:
       - app-network
     extra_hosts:
       - "host.docker.internal:host-gateway"
+    env_file:
+      - container.env
 
   app:
     build:
       context: .
       dockerfile: Dockerfile
-    platform: linux/amd64
     container_name: app
     restart: always
     ports:
@@ -79,7 +81,7 @@ services:
       - NODE_ENV=development
       - HOST=0.0.0.0
       - PORT=8081
-      - SWAGGER_URL=${SWAGGER_URL:-https://qc.novaarchai.com}
+      - SWAGGER_URL=${SWAGGER_URL:-http://localhost:8081/api/docs}
       - COMMON_RATE_LIMIT_MAX_REQUESTS=${COMMON_RATE_LIMIT_MAX_REQUESTS:-1000}
       - COMMON_RATE_LIMIT_WINDOW_MS=${COMMON_RATE_LIMIT_WINDOW_MS:-1000}
       - POSTGRES_HOST=postgres
@@ -101,7 +103,7 @@ services:
       - JWT_SECRET=${JWT_SECRET:-your-secret-key}
       - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET:-your-refresh-secret-key}
       - JWT_EXPIRES_IN=${JWT_EXPIRES_IN:-1d}
-      - CORS_ORIGIN=${CORS_ORIGIN:-http://localhost:3000,http://localhost:5173,http://5.202.171.177:8082}
+      - CORS_ORIGIN=${CORS_ORIGIN:-http://localhost:3000,http://localhost:5173,http://31.184.134.173:8082,http://host.docker.internal:8082, http://host.docker.internal:8081, http://31.184.134.173:8081}
     volumes:
       - ./conversations:/app/conversations:ro
     depends_on:
@@ -116,6 +118,8 @@ services:
       - app-network
     extra_hosts:
       - "host.docker.internal:host-gateway"
+    env_file:
+      - container.env
 
   # operaai:
   #   image: operaasr2:v1.1T

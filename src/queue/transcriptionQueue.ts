@@ -1,13 +1,13 @@
 import { Queue, Worker } from 'bullmq';
 import { env } from '@/common/utils/envConfig';
 import { PrismaClient } from '@prisma/client';
-import { sendFilesToTranscriptionAPI, sendToAnalysisAPI } from '@/api/session/session';
+import { sendFilesToTranscriptionAPI } from '@/api/session/session';
 import { TranscriptionResponseSchema } from '@/api/session/sessionModel';
 import fs from 'fs';
 
 const prisma = new PrismaClient();
 
-// Create a dedicated transcription queue for slow processing
+// Create a dedicated transcription queue for ASR
 export const transcriptionQueue = new Queue('transcription-processing', {
     connection: {
         host: env.REDIS_HOST || 'localhost',
@@ -24,13 +24,30 @@ export const transcriptionQueue = new Queue('transcription-processing', {
     }
 });
 
-// Create a worker for transcription processing with higher concurrency
+// Create a new queue for LLM analysis
+export const llmQueue = new Queue('llm-processing', {
+    connection: {
+        host: env.REDIS_HOST || 'localhost',
+        port: env.REDIS_PORT,
+    },
+    defaultJobOptions: {
+        removeOnComplete: 1000,
+        removeOnFail: 5000,
+        attempts: 3,
+        backoff: {
+            type: 'exponential',
+            delay: 2000,
+        },
+    }
+});
+
+// Transcription worker: only ASR, then enqueue LLM job
 export const transcriptionWorker = new Worker(
     'transcription-processing',
-    async (job) => {
+    async (job: any) => {
         try {
             console.log(`Starting transcription job ${job.id} for session ${job.data.sessionEventId}`);
-            
+
             const { sessionEventId, customerFilePath, agentFilePath, filename } = job.data;
 
             // Check if files exist
@@ -43,86 +60,48 @@ export const transcriptionWorker = new Worker(
                 };
             }
 
-            console.log(`Analyzing audio files for session ${sessionEventId}`);
+            // Send files to ASR/transcription API only
+            console.log("Sending files to ASR API...");
+            const transcriptionResult = await sendFilesToTranscriptionAPI(customerFilePath, agentFilePath);
+            console.log("ASR Result:", transcriptionResult);
 
-            // Send files to the combined process API endpoint that handles both transcription and analysis
-            console.log("Sending files to process API...");
-            const processResult = await sendFilesToTranscriptionAPI(customerFilePath, agentFilePath);
-            console.log("Process Result:", processResult);
-
-            if (!processResult) {
-                console.error(`Audio processing failed for session ${sessionEventId}`);
+            if (!transcriptionResult) {
+                console.error(`ASR failed for session ${sessionEventId}`);
                 return {
                     success: false,
-                    error: "Audio processing failed",
+                    error: "ASR failed",
                     sessionEventId
                 };
             }
 
-            // The sendToAnalysisAPI now just returns the same processResult since analysis is included
-            const analysisResult = await sendToAnalysisAPI(processResult);
-
-            // Parse and validate the process result against our schema
-            const parsedProcess = TranscriptionResponseSchema.safeParse(processResult);
+            // Validate transcription result (optional, can be improved)
+            const parsedProcess = TranscriptionResponseSchema.safeParse(transcriptionResult);
             if (!parsedProcess.success) {
-                console.error(`Invalid Process Data for session ${sessionEventId}:`, parsedProcess.error.format());
+                console.error(`Invalid ASR Data for session ${sessionEventId}:`, parsedProcess.error.format());
                 return {
                     success: false,
-                    error: "Invalid process data",
+                    error: "Invalid ASR data",
                     sessionEventId
                 };
             }
 
-            // Now update the session event with the process results
-            try {
-                const transcriptionData = processResult.transcription;
-                const analysisData = processResult.analysis || {};
+            // Enqueue LLM job for analysis
+            await llmQueue.add('analyze-transcription', {
+                sessionEventId,
+                transcriptionResult,
+                filename,
+                customerFilePath,
+                agentFilePath
+            });
 
-                // Update the session event with the data from the process API
-                const updatedSessionEvent = await prisma.sessionEvent.update({
-                    where: { id: sessionEventId },
-                    data: {
-                        transcription: transcriptionData,
-                        explanation: analysisData.explanation?.[0] || null,
-                        category: analysisData.category?.[0] || null,
-                        topic: analysisData.topic || null,
-                        emotion: analysisData.emotion?.[0] || null,
-                        keyWords: analysisData.keywords || [],
-                        routinCheckStart: analysisData.routinCheckStart || null,
-                        routinCheckEnd: analysisData.routinCheckEnd || null,
-                        forbiddenWords: analysisData.forbiddenWords || null,
-                    }
-                });
+            // Clean up temporary files (optional: could be done in LLM worker after analysis)
+            // (Commented out here, will be handled in LLM worker)
 
-                console.log(`Updated session event with process results: ${sessionEventId}`);
-
-                // Clean up temporary files
-                try {
-                    if (fs.existsSync(customerFilePath)) {
-                        fs.unlinkSync(customerFilePath);
-                    }
-                    if (fs.existsSync(agentFilePath)) {
-                        fs.unlinkSync(agentFilePath);
-                    }
-                    console.log(`Cleaned up temporary files for session ${sessionEventId}`);
-                } catch (cleanupError) {
-                    console.warn(`Failed to cleanup files for session ${sessionEventId}:`, cleanupError);
-                }
-
-                return {
-                    success: true,
-                    sessionEventId,
-                    message: "Audio analysis completed successfully"
-                };
-
-            } catch (updateError) {
-                console.error(`Failed to update session event ${sessionEventId}:`, updateError);
-                return {
-                    success: false,
-                    error: "Failed to update session event",
-                    sessionEventId
-                };
-            }
+            return {
+                success: true,
+                sessionEventId,
+                message: "ASR completed, LLM job enqueued"
+            };
 
         } catch (error) {
             console.error(`Error processing transcription job ${job.id}:`, error);
@@ -134,19 +113,84 @@ export const transcriptionWorker = new Worker(
             host: env.REDIS_HOST || 'localhost',
             port: env.REDIS_PORT,
         },
-        // Higher concurrency for transcription processing
-        concurrency: 3,
+        concurrency: 6,
         removeOnComplete: { count: 1000 },
         removeOnFail: { count: 5000 }
     }
 );
 
-// Set up event handlers
-transcriptionWorker.on('completed', (job) => {
+// LLM worker: analysis step, concurrency 4
+export const llmWorker = new Worker(
+    'llm-processing',
+    async (job: any) => {
+        try {
+            const { sessionEventId, transcriptionResult, filename, customerFilePath, agentFilePath } = job.data;
+            // Import sendToAnalysisAPI lazily to avoid circular deps
+            const { sendToAnalysisAPI } = await import('@/api/session/session');
+
+            // Send transcription to LLM/analysis API
+            const analysisResult = await sendToAnalysisAPI(transcriptionResult);
+
+            // Compose data for DB update
+            const analysisData = analysisResult?.analysis || {};
+            const transcriptionData = analysisResult?.transcription || transcriptionResult?.transcription || null;
+
+            // Update the session event with the analysis results
+            await prisma.sessionEvent.update({
+                where: { id: sessionEventId },
+                data: {
+                    transcription: transcriptionData,
+                    explanation: analysisData.explanation?.[0] || null,
+                    category: analysisData.category?.[0] || null,
+                    topic: analysisData.topic || null,
+                    emotion: analysisData.emotion?.[0] || null,
+                    keyWords: analysisData.keywords || [],
+                    routinCheckStart: analysisData.routinCheckStart || null,
+                    routinCheckEnd: analysisData.routinCheckEnd || null,
+                    forbiddenWords: analysisData.forbiddenWords || null,
+                }
+            });
+
+            // Clean up temporary files
+            try {
+                if (customerFilePath && fs.existsSync(customerFilePath)) {
+                    fs.unlinkSync(customerFilePath);
+                }
+                if (agentFilePath && fs.existsSync(agentFilePath)) {
+                    fs.unlinkSync(agentFilePath);
+                }
+                console.log(`Cleaned up temporary files for session ${sessionEventId}`);
+            } catch (cleanupError) {
+                console.warn(`Failed to cleanup files for session ${sessionEventId}:`, cleanupError);
+            }
+
+            return {
+                success: true,
+                sessionEventId,
+                message: "LLM analysis completed successfully"
+            };
+        } catch (error) {
+            console.error(`Error processing LLM job ${job.id}:`, error);
+            throw error;
+        }
+    },
+    {
+        connection: {
+            host: env.REDIS_HOST || 'localhost',
+            port: env.REDIS_PORT,
+        },
+        concurrency: 4,
+        removeOnComplete: { count: 1000 },
+        removeOnFail: { count: 5000 }
+    }
+);
+
+// Set up event handlers for both workers
+transcriptionWorker.on('completed', (job: any) => {
     console.log(`Transcription job ${job.id} completed successfully`);
 });
 
-transcriptionWorker.on('failed', (job, error) => {
+transcriptionWorker.on('failed', (job: any, error: any) => {
     if (job) {
         console.error(`Transcription job ${job.id} failed:`, error);
     } else {
@@ -154,10 +198,21 @@ transcriptionWorker.on('failed', (job, error) => {
     }
 });
 
+llmWorker.on('completed', (job: any) => {
+    console.log(`LLM job ${job.id} completed successfully`);
+});
+
+llmWorker.on('failed', (job: any, error: any) => {
+    if (job) {
+        console.error(`LLM job ${job.id} failed:`, error);
+    } else {
+        console.error('A LLM job failed with error:', error);
+    }
+});
+
 // Helper function to add a transcription job
 export async function addTranscriptionJob(sessionEventId: number, customerFilePath: string, agentFilePath: string, filename: string, options = {}) {
     console.log(`Queuing transcription job for session ${sessionEventId}`);
-    
     return await transcriptionQueue.add('transcribe-audio', {
         sessionEventId,
         customerFilePath,
