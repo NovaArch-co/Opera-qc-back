@@ -1149,7 +1149,7 @@ export const sendFilesToTranscriptionAPI = async (filePathIn: string, filePathOu
         form.append("agent", fs.createReadStream(filePathOut));
 
         // Updated endpoint URL
-        const response = await axios.post("http://host.docker.internal:8003/process/", form, {
+        const response = await axios.post("http://31.184.134.153:8003/transcription/", form, {
             headers: {
                 ...form.getHeaders(),
                 "accept": "application/json"
@@ -1170,12 +1170,20 @@ export const sendToAnalysisAPI = async (transcriptionData: any) => {
             return null;
         }
 
-        // Since we now get the analysis directly from the process endpoint,
-        // we don't need a separate analysis API call. Just return the transcription data
-        // which should already include the analysis.
-        return transcriptionData;
+        // Call the public analysis endpoint with JSON payload
+        const response = await axios.post(
+            "http://31.184.134.153:8003/analyze/",
+            transcriptionData,
+            {
+                headers: {
+                    "accept": "application/json",
+                    "Content-Type": "application/json"
+                }
+            }
+        );
+        return response.data;
     } catch (error: any) {
-        console.error("Error in analysis processing:", error.message);
+        console.error("Error in analysis processing:", error.response?.data || error.message);
         return null;
     }
 };
