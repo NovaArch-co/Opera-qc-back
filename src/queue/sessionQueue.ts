@@ -2,8 +2,8 @@ import { Queue, Worker } from 'bullmq';
 import { PrismaClient } from '@prisma/client';
 import { sendAudioRequests } from '@/api/session/session';
 import { uploadToMinIO } from '@/api/session/session';
-import { sendFilesToTranscriptionAPI } from '@/api/session/session';
-import { sendToAnalysisAPI } from '@/api/session/session';
+// import { sendFilesToTranscriptionAPI } from '@/api/session/session';
+// import { sendToAnalysisAPI } from '@/api/session/session';
 import { TranscriptionResponseSchema, AnalysisResponseSchema } from '@/api/session/sessionModel';
 import path from 'node:path';
 import { env } from '@/common/utils/envConfig';
@@ -180,55 +180,11 @@ export const sessionWorker = new Worker(
 
             console.log("Created session event:", sessionEvent);
 
-            try {
-                // Step 3: Send files to the combined process API for both transcription and analysis
-                console.log("Sending files to process API...");
-                const processResult = await sendFilesToTranscriptionAPI(customerFilePath, agentFilePath);
-                console.log("Process Result:", processResult);
-
-                if (processResult) {
-                    // The analysis is now included directly in the process result
-                    console.log("Process completed successfully");
-
-                    // Parse and validate the process result
-                    const parsedProcess = TranscriptionResponseSchema.safeParse(processResult);
-                    if (!parsedProcess.success) {
-                        console.error("Invalid Process Data:", parsedProcess.error.format());
-                    } else {
-                        console.log("✅ Valid Process Data");
-                    }
-
-                    // Extract the data
-                    const transcriptionData = processResult.transcription;
-                    const analysisData = processResult.analysis || {};
-
-                    // Update the session event with the processed data
-                    const updatedSessionEvent = await prisma.sessionEvent.update({
-                        where: { id: sessionEvent.id },
-                        data: {
-                            incommingfileUrl: `/${BUCKET_NAME}/${filename}-in.wav`,
-                            outgoingfileUrl: `/${BUCKET_NAME}/${filename}-out.wav`,
-                            transcription: processResult,
-                            explanation: analysisData.explanation?.[0] || null,
-                            topic: analysisData.topic || null,
-                            // Set other fields to null/defaults since they're not in the new format
-                            category: null,
-                            emotion: null,
-                            keyWords: [],
-                            routinCheckStart: null,
-                            routinCheckEnd: null,
-                            forbiddenWords: {}
-                        }
-                    });
-
-                    console.log(`Session event ${sessionEvent.id} updated with transcription and analysis data`);
-                } else {
-                    console.error("Process API failed to return results");
-                }
-            } catch (processingError) {
-                console.error("Error in post-processing:", processingError);
-                // Continue execution - we don't want to fail the job if just the analysis fails
-            }
+            // Instead of calling ASR+LLM directly, just queue the transcription job (ASR step)
+            // The transcription worker will handle ASR, then enqueue LLM job for analysis
+            const { addTranscriptionJob } = await import('./transcriptionQueue');
+            await addTranscriptionJob(sessionEvent.id, customerFilePath, agentFilePath, filename);
+            console.log(`Queued transcription job for session ${sessionEvent.id}`);
 
             // Clean up temp files
             try {
@@ -252,7 +208,7 @@ export const sessionWorker = new Worker(
             host: env.REDIS_HOST,
             port: Number(env.REDIS_PORT || '6379'),
         },
-        concurrency: 5,
+        concurrency: 4,
         removeOnComplete: { count: 1000 },
         removeOnFail: { count: 5000 }
     }

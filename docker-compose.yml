@@ -1,6 +1,6 @@
 services:
   redis:
-    image: docker.arvancloud.ir/redis:latest
+    image: redis:7
     container_name: opera-qc-redis
     restart: always
     ports:
@@ -10,25 +10,40 @@ services:
     command: redis-server --appendonly yes
     networks:
       - app-network
+  swagger-ui:
+    image: swaggerapi/swagger-ui
+    container_name: swagger-ui
+    ports:
+      - "8084:8080"
+    environment:
+      SWAGGER_JSON: /openapi/swagger.json
+    volumes:
+      - ./openapi/swagger.json:/openapi/swagger.json:ro
+    networks:
+      - app-network
+    env_file:
+      - container.env
 
   minio:
-    image: docker.arvancloud.ir/minio/minio
+    image: minio/minio
     container_name: minio
     restart: always
     environment:
       MINIO_ACCESS_KEY: minioaccesskey
       MINIO_SECRET_KEY: miniosecretkey
     ports:
-      - "9005:9000"   # host 9005 → container 9000 (data API)
-      - "9006:9006"   # host 9006 → container 9006 (Web UI)
+      - "9005:9000" # host 9005 → container 9000 (data API)
+      - "9006:9006" # host 9006 → container 9006 (Web UI)
     volumes:
       - minio_data:/data
     command: server /data --console-address ":9006"
     networks:
       - app-network
+    env_file:
+      - container.env
 
   postgres:
-    image: bitnami/postgresql:17.2.0
+    image: postgres:17.2
     container_name: postgres
     restart: always
     environment:
@@ -48,6 +63,10 @@ services:
       retries: 5
     networks:
       - app-network
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    env_file:
+      - container.env
 
   app:
     build:
@@ -62,7 +81,7 @@ services:
       - NODE_ENV=development
       - HOST=0.0.0.0
       - PORT=8081
-      - SWAGGER_URL=${SWAGGER_URL:-https://qc.novaarchai.com}
+      - SWAGGER_URL=${SWAGGER_URL:-http://localhost:8081/api/docs}
       - COMMON_RATE_LIMIT_MAX_REQUESTS=${COMMON_RATE_LIMIT_MAX_REQUESTS:-1000}
       - COMMON_RATE_LIMIT_WINDOW_MS=${COMMON_RATE_LIMIT_WINDOW_MS:-1000}
       - POSTGRES_HOST=postgres
@@ -84,7 +103,7 @@ services:
       - JWT_SECRET=${JWT_SECRET:-your-secret-key}
       - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET:-your-refresh-secret-key}
       - JWT_EXPIRES_IN=${JWT_EXPIRES_IN:-1d}
-      - CORS_ORIGIN=${CORS_ORIGIN:-http://localhost:3000,http://localhost:5173,http://5.202.171.177:8082}
+      - CORS_ORIGIN=${CORS_ORIGIN:-http://localhost:3000,http://localhost:5173,http://31.184.134.173:8082,http://host.docker.internal:8082, http://host.docker.internal:8081, http://31.184.134.173:8081}
     volumes:
       - ./conversations:/app/conversations:ro
     depends_on:
@@ -97,6 +116,10 @@ services:
     command: sh -c "npx prisma generate && npx prisma migrate deploy && npm start"
     networks:
       - app-network
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    env_file:
+      - container.env
 
   # operaai:
   #   image: operaasr2:v1.1T
@@ -110,7 +133,6 @@ services:
   #   command: uvicorn main:app --host 0.0.0.0 --port 8000
   #   networks:
   #     - app-network
-
 
 networks:
   app-network:
