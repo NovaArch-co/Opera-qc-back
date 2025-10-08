@@ -1,0 +1,291 @@
+version: '3.8'
+
+services:
+  # Primary Redis Instance - Master
+  redis-master:
+    image: redis:7.2-alpine
+    container_name: opera-qc-redis-master
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_master_data:/data
+      - ./redis/redis.conf:/usr/local/etc/redis/redis.conf:ro
+      - ./redis/logs:/var/log/redis
+    command: redis-server /usr/local/etc/redis/redis.conf
+    networks:
+      - app-network
+    environment:
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-OperaQC2024!Secure}
+    healthcheck:
+      test: ["CMD", "redis-cli", "--no-auth-warning", "-a", "${REDIS_PASSWORD:-OperaQC2024!Secure}", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 30s
+    sysctls:
+      - net.core.somaxconn=65535
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+      nofile:
+        soft: 65536
+        hard: 65536
+    deploy:
+      resources:
+        limits:
+          memory: 3G
+          cpus: '2.0'
+        reservations:
+          memory: 1G
+          cpus: '0.5'
+
+  # Redis Sentinel for High Availability
+  redis-sentinel-1:
+    image: redis:7.2-alpine
+    container_name: opera-qc-redis-sentinel-1
+    restart: unless-stopped
+    ports:
+      - "26379:26379"
+    volumes:
+      - ./redis/sentinel.conf:/usr/local/etc/redis/sentinel.conf:ro
+      - ./redis/logs:/var/log/redis
+    command: redis-sentinel /usr/local/etc/redis/sentinel.conf
+    networks:
+      - app-network
+    depends_on:
+      redis-master:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "redis-cli", "-p", "26379", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 30s
+
+  redis-sentinel-2:
+    image: redis:7.2-alpine
+    container_name: opera-qc-redis-sentinel-2
+    restart: unless-stopped
+    ports:
+      - "26380:26379"
+    volumes:
+      - ./redis/sentinel.conf:/usr/local/etc/redis/sentinel.conf:ro
+      - ./redis/logs:/var/log/redis
+    command: redis-sentinel /usr/local/etc/redis/sentinel.conf
+    networks:
+      - app-network
+    depends_on:
+      redis-master:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "redis-cli", "-p", "26379", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 30s
+
+  redis-sentinel-3:
+    image: redis:7.2-alpine
+    container_name: opera-qc-redis-sentinel-3
+    restart: unless-stopped
+    ports:
+      - "26381:26379"
+    volumes:
+      - ./redis/sentinel.conf:/usr/local/etc/redis/sentinel.conf:ro
+      - ./redis/logs:/var/log/redis
+    command: redis-sentinel /usr/local/etc/redis/sentinel.conf
+    networks:
+      - app-network
+    depends_on:
+      redis-master:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "redis-cli", "-p", "26379", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 30s
+
+  # Redis Backup Service
+  redis-backup:
+    image: redis:7.2-alpine
+    container_name: opera-qc-redis-backup
+    restart: unless-stopped
+    volumes:
+      - redis_master_data:/data:ro
+      - ./redis/backups:/backups
+      - ./redis/backup-script.sh:/backup-script.sh:ro
+    command: sh -c "chmod +x /backup-script.sh && crond -f"
+    networks:
+      - app-network
+    depends_on:
+      redis-master:
+        condition: service_healthy
+    environment:
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-OperaQC2024!Secure}
+
+  # Redis Monitor and Health Check Service
+  redis-monitor:
+    image: redis:7.2-alpine
+    container_name: opera-qc-redis-monitor
+    restart: unless-stopped
+    volumes:
+      - ./redis/monitor.sh:/monitor.sh:ro
+      - ./redis/logs:/var/log/redis
+    command: sh -c "chmod +x /monitor.sh && /monitor.sh"
+    networks:
+      - app-network
+    depends_on:
+      redis-master:
+        condition: service_healthy
+    environment:
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-OperaQC2024!Secure}
+      - WEBHOOK_URL=${REDIS_ALERT_WEBHOOK:-}
+
+  swagger-ui:
+    image: swaggerapi/swagger-ui
+    container_name: swagger-ui
+    ports:
+      - "8084:8080"
+    environment:
+      SWAGGER_JSON: /openapi/swagger.json
+    volumes:
+      - ./openapi/swagger.json:/openapi/swagger.json:ro
+    networks:
+      - app-network
+    env_file:
+      - container.env
+
+  minio:
+    image: minio/minio
+    container_name: minio
+    restart: unless-stopped
+    environment:
+      MINIO_ACCESS_KEY: minioaccesskey
+      MINIO_SECRET_KEY: miniosecretkey
+    ports:
+      - "9005:9000" # host 9005 → container 9000 (data API)
+      - "9006:9006" # host 9006 → container 9006 (Web UI)
+    volumes:
+      - minio_data:/data
+    command: server /data --console-address ":9006"
+    networks:
+      - app-network
+    env_file:
+      - container.env
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+
+  postgres:
+    image: postgres:17.2
+    container_name: postgres
+    restart: unless-stopped
+    environment:
+      POSTGRESQL_DATABASE: ${POSTGRES_DB}
+      POSTGRESQL_USERNAME: ${POSTGRES_USER}
+      POSTGRESQL_PASSWORD: ${POSTGRES_PASSWORD}
+      ALLOW_EMPTY_PASSWORD: "yes"
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/bitnami/postgresql
+    user: root
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - app-network
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    env_file:
+      - container.env
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: app
+    restart: unless-stopped
+    ports:
+      - "8081:8081"
+      - "5555:5555"
+    environment:
+      - NODE_ENV=production
+      - HOST=0.0.0.0
+      - PORT=8081
+      - SWAGGER_URL=${SWAGGER_URL:-http://31.184.134.153:8081/api/docs}
+      - COMMON_RATE_LIMIT_MAX_REQUESTS=${COMMON_RATE_LIMIT_MAX_REQUESTS:-1000}
+      - COMMON_RATE_LIMIT_WINDOW_MS=${COMMON_RATE_LIMIT_WINDOW_MS:-1000}
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      - REDIS_HOST=redis-master
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-OperaQC2024!Secure}
+      - REDIS_SENTINEL_HOSTS=redis-sentinel-1:26379,redis-sentinel-2:26379,redis-sentinel-3:26379
+      - REDIS_SENTINEL_NAME=mymaster
+      - BULL_QUEUE=${BULL_QUEUE:-analyseCalls}
+      - FILE_SERVER_BASE_URL=http://94.182.56.132/tmp/two-channel/stream-audio-incoming.php?recfile=
+      - AUDIO_DIR=/app/conversations
+      - MINIO_ENDPOINT=minio
+      - MINIO_ENDPOINT_UTL=http://minio:9000
+      - MINIO_PORT=9000
+      - MINIO_ACCESS_KEY=minioaccesskey
+      - MINIO_SECRET_KEY=miniosecretkey
+      - JWT_SECRET=${JWT_SECRET:-your-secret-key}
+      - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET:-your-refresh-secret-key}
+      - JWT_EXPIRES_IN=${JWT_EXPIRES_IN:-1d}
+      - CORS_ORIGIN=${CORS_ORIGIN:-http://localhost:3000,http://localhost:5173,http://31.184.134.173:8082,http://host.docker.internal:8082, http://host.docker.internal:8081, http://31.184.134.173:8081}
+    volumes:
+      - ./conversations:/app/conversations:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      redis-master:
+        condition: service_healthy
+      redis-sentinel-1:
+        condition: service_healthy
+      redis-sentinel-2:
+        condition: service_healthy
+      redis-sentinel-3:
+        condition: service_healthy
+    command: sh -c "npx prisma generate && npx prisma migrate deploy && npm start"
+    networks:
+      - app-network
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    env_file:
+      - container.env
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8081/api/docs"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+networks:
+  app-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+
+volumes:
+  postgres_data:
+    driver: local
+  minio_data:
+    driver: local
+  redis_master_data:
+    driver: local

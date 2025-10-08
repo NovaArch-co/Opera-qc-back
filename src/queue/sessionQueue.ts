@@ -11,6 +11,7 @@ import fs from 'fs';
 import { S3Client, PutObjectCommand, ListBucketsCommand, CreateBucketCommand, HeadBucketCommand } from '@aws-sdk/client-s3';
 import axios from 'axios';
 import os from 'os';
+import { getRedisClient, redisCircuitBreaker } from '@/common/utils/redisManager';
 
 const prisma = new PrismaClient();
 const s3Client = new S3Client({
@@ -46,11 +47,20 @@ async function ensureBucketExists(bucketName: string) {
     }
 }
 
-// Create a new queue
+// Create a new queue with resilient Redis connection
 export const sessionQueue = new Queue('session-processing', {
-    connection: {
-        host: env.REDIS_HOST || 'localhost',
-        port: Number(env.REDIS_PORT || '6379'),
+    connection: await redisCircuitBreaker.execute(async () => {
+        const client = await getRedisClient();
+        return client;
+    }),
+    defaultJobOptions: {
+        removeOnComplete: 1000,
+        removeOnFail: 5000,
+        attempts: 5,
+        backoff: {
+            type: 'exponential',
+            delay: 2000,
+        },
     }
 });
 

@@ -34,6 +34,9 @@ export const env = cleanEnv(process.env, {
     MINIO_SECRET_KEY: str({ devDefault: testOnly("miniosecretkey") }),
     REDIS_HOST: str({ devDefault: testOnly("redis") }),
     REDIS_PORT: port({ devDefault: testOnly(6379) }),
+    REDIS_PASSWORD: str({ devDefault: testOnly("") }),
+    REDIS_SENTINEL_HOSTS: str({ devDefault: testOnly("") }),
+    REDIS_SENTINEL_NAME: str({ devDefault: testOnly("mymaster") }),
     BULL_QUEUE: str({ devDefault: testOnly("analyseCalls") }),
     DATABASE_URL: url({ devDefault: testOnly("postgresql://postgres:postgres@localhost:5432/postgres") }),
 });
