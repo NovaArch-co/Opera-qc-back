@@ -3,3 +3,12 @@ npm-debug.log
 Dockerfile
 .dockerignore
 .gitignore
+redis_backup_*
+.redis_password
+redis/logs
+redis/backups
+conversations
+investigation_scripts
+*.md
+*.sh
+docker-compose*.yml
