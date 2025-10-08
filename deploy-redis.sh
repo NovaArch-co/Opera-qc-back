@@ -90,7 +90,8 @@ update_environment() {
     
     # Update container.env
     if grep -q "REDIS_PASSWORD=" container.env; then
-        sed -i "s/REDIS_PASSWORD=.*/REDIS_PASSWORD=${REDIS_PASSWORD}/" container.env
+        # Use a different delimiter to avoid issues with special characters
+        sed -i "s|REDIS_PASSWORD=.*|REDIS_PASSWORD=${REDIS_PASSWORD}|" container.env
     else
         echo "REDIS_PASSWORD=${REDIS_PASSWORD}" >> container.env
     fi
