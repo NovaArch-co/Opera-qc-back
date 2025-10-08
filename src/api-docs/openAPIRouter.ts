@@ -19,19 +19,19 @@ const swaggerOptions = {
   swaggerOptions: {
     displayRequestDuration: true,
     docExpansion: "none",
-    operationsSorter: 'alpha',
-    tagsSorter: 'alpha',
+    operationsSorter: "alpha",
+    tagsSorter: "alpha",
     filter: true,
     plugins: [
       () => {
         return {
           wrapComponents: {
-            servers: () => () => null // This hides the servers dropdown
-          }
-        }
-      }
-    ]
-  }
+            servers: () => () => null, // This hides the servers dropdown
+          },
+        };
+      },
+    ],
+  },
 };
 
 // Setup Swagger UI

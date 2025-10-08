@@ -79,4 +79,4 @@ sequentialRouter.get("/jobs/:jobId/status", sequentialJobController.getJobStatus
  *       500:
  *         description: Server error
  */
-sequentialRouter.get("/jobs", sequentialJobController.getAllJobs); 
+sequentialRouter.get("/jobs", sequentialJobController.getAllJobs);

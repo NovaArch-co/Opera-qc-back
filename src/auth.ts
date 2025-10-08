@@ -1,9 +1,9 @@
-import jwt from "jsonwebtoken";
-import { ExtractJwt, Strategy as JwtStrategy, type StrategyOptionsWithoutRequest } from "passport-jwt";
-import dotenv from "dotenv";
+import { reconnectToDatabase } from "@/common/utils/dbHealthCheck";
 import { env } from "@/common/utils/envConfig";
 import prisma from "@/common/utils/prisma";
-import { reconnectToDatabase } from "@/common/utils/dbHealthCheck";
+import dotenv from "dotenv";
+import jwt from "jsonwebtoken";
+import { ExtractJwt, Strategy as JwtStrategy, type StrategyOptionsWithoutRequest } from "passport-jwt";
 
 dotenv.config();
 
@@ -45,11 +45,12 @@ export const passportConfig = new JwtStrategy(jwtOpts, async (payload, done) => 
     console.error("Authentication error:", error);
 
     // Check if it's a connection error
-    if (error instanceof Error &&
+    if (
+      error instanceof Error &&
       (error.message.includes("prepared statement") ||
         error.message.includes("connection") ||
-        error.message.includes("timeout"))) {
-
+        error.message.includes("timeout"))
+    ) {
       // Try to reconnect to the database
       const reconnected = await reconnectToDatabase();
       if (reconnected) {

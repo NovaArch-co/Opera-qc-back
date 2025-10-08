@@ -1,17 +1,23 @@
-import { Queue, Worker } from 'bullmq';
-import { PrismaClient } from '@prisma/client';
-import { sendAudioRequests } from '@/api/session/session';
-import { uploadToMinIO } from '@/api/session/session';
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import { sendAudioRequests } from "@/api/session/session";
+import { uploadToMinIO } from "@/api/session/session";
 // import { sendFilesToTranscriptionAPI } from '@/api/session/session';
-import { sendToAnalysisAPI } from '@/api/session/session';
-import { TranscriptionResponseSchema, AnalysisResponseSchema } from '@/api/session/sessionModel';
-import path from 'node:path';
-import { env } from '@/common/utils/envConfig';
-import fs from 'fs';
-import { S3Client, PutObjectCommand, ListBucketsCommand, CreateBucketCommand, HeadBucketCommand } from '@aws-sdk/client-s3';
-import axios from 'axios';
-import os from 'os';
-import { getRedisClient, redisCircuitBreaker } from '@/common/utils/redisManager';
+import { sendToAnalysisAPI } from "@/api/session/session";
+import { AnalysisResponseSchema, TranscriptionResponseSchema } from "@/api/session/sessionModel";
+import { env } from "@/common/utils/envConfig";
+import { getRedisClient, redisCircuitBreaker } from "@/common/utils/redisManager";
+import {
+    CreateBucketCommand,
+    HeadBucketCommand,
+    ListBucketsCommand,
+    PutObjectCommand,
+    S3Client,
+} from "@aws-sdk/client-s3";
+import { PrismaClient } from "@prisma/client";
+import axios from "axios";
+import { Queue, Worker } from "bullmq";
 
 const prisma = new PrismaClient();
 const s3Client = new S3Client({
@@ -48,20 +54,25 @@ async function ensureBucketExists(bucketName: string) {
 }
 
 // Create a new queue with resilient Redis connection
-export const sessionQueue = new Queue('session-processing', {
-    connection: await redisCircuitBreaker.execute(async () => {
-        const client = await getRedisClient();
-        return client;
-    }),
+export const sessionQueue = new Queue("session-processing", {
+    connection: {
+        host: env.REDIS_HOST || "localhost",
+        port: Number(env.REDIS_PORT || "6379"),
+        password: env.REDIS_PASSWORD,
+        retryDelayOnFailover: 100,
+        maxRetriesPerRequest: 3,
+        lazyConnect: true,
+        enableOfflineQueue: false,
+    },
     defaultJobOptions: {
         removeOnComplete: 1000,
         removeOnFail: 5000,
         attempts: 5,
         backoff: {
-            type: 'exponential',
+            type: "exponential",
             delay: 2000,
         },
-    }
+    },
 });
 
 // Create a worker to process the queue
@@ -70,17 +81,7 @@ export const sessionWorker = new Worker(
     async (job) => {
         try {
             // Get the data in the format it comes from the external service
-            const {
-                type,
-                sourceChannel,
-                sourceNumber,
-                queue,
-                destChannel,
-                destNumber,
-                date,
-                duration,
-                filename
-            } = job.data;
+            const { type, sourceChannel, sourceNumber, queue, destChannel, destNumber, date, duration, filename } = job.data;
 
             console.log("Received job data:", job.data);
 
@@ -94,23 +95,24 @@ export const sessionWorker = new Worker(
             // Basic auth credentials for file server
             const auth = {
                 username: "Tipax",
-                password: "Goz@r!SimotelTip@x!1404"
+                password: "Goz@r!SimotelTip@x!1404",
             };
 
             // Download audio file from file server
             const baseFileName = filename.replace(".wav", "");
 
             // Use different base URLs based on the call type
-            const fileServerBaseUrl = type === 'incoming'
-                ? `http://94.182.56.132/tmp/two-channel/stream-audio-incoming.php?recfile=`
-                : `http://94.182.56.132/tmp/two-channel/stream-audio-outgoing.php?recfile=`;
+            const fileServerBaseUrl =
+                type === "incoming"
+                    ? "http://94.182.56.132/tmp/two-channel/stream-audio-incoming.php?recfile="
+                    : "http://94.182.56.132/tmp/two-channel/stream-audio-outgoing.php?recfile=";
 
             // Download customer file (-in)
             const customerFileUrl = `${fileServerBaseUrl}${baseFileName}-in`;
             console.log("Downloading customer file from:", customerFileUrl);
             const customerResponse = await axios.get(customerFileUrl, {
-                responseType: 'arraybuffer',
-                auth: auth
+                responseType: "arraybuffer",
+                auth: auth,
             });
             const customerAudioBuffer = Buffer.from(customerResponse.data);
 
@@ -118,8 +120,8 @@ export const sessionWorker = new Worker(
             const agentFileUrl = `${fileServerBaseUrl}${baseFileName}-out`;
             console.log("Downloading agent file from:", agentFileUrl);
             const agentResponse = await axios.get(agentFileUrl, {
-                responseType: 'arraybuffer',
-                auth: auth
+                responseType: "arraybuffer",
+                auth: auth,
             });
             const agentAudioBuffer = Buffer.from(agentResponse.data);
 
@@ -136,8 +138,8 @@ export const sessionWorker = new Worker(
                     Bucket: BUCKET_NAME,
                     Key: customerKey,
                     Body: customerAudioBuffer,
-                    ContentType: 'audio/wav'
-                })
+                    ContentType: "audio/wav",
+                }),
             );
             console.log("Uploaded customer file to MinIO:", customerKey);
 
@@ -147,13 +149,13 @@ export const sessionWorker = new Worker(
                     Bucket: BUCKET_NAME,
                     Key: agentKey,
                     Body: agentAudioBuffer,
-                    ContentType: 'audio/wav'
-                })
+                    ContentType: "audio/wav",
+                }),
             );
             console.log("Uploaded agent file to MinIO:", agentKey);
 
             // Create temporary files for transcription
-            const tempDir = path.join(os.tmpdir(), 'opera-qc');
+            const tempDir = path.join(os.tmpdir(), "opera-qc");
             if (!fs.existsSync(tempDir)) {
                 fs.mkdirSync(tempDir, { recursive: true });
             }
@@ -184,15 +186,15 @@ export const sessionWorker = new Worker(
                     date: new Date(date),
                     duration,
                     filename,
-                    keyWords: [] // Initialize with empty array
-                }
+                    keyWords: [], // Initialize with empty array
+                },
             });
 
             console.log("Created session event:", sessionEvent);
 
             // Instead of calling ASR+LLM directly, just queue the transcription job (ASR step)
             // The transcription worker will handle ASR, then enqueue LLM job for analysis
-            const { addTranscriptionJob } = await import('./transcriptionQueue');
+            const { addTranscriptionJob } = await import("./transcriptionQueue");
             await addTranscriptionJob(sessionEvent.id, customerFilePath, agentFilePath, filename);
             console.log(`Queued transcription job for session ${sessionEvent.id}`);
 
@@ -206,20 +208,20 @@ export const sessionWorker = new Worker(
 
             return {
                 success: true,
-                sessionEventId: sessionEvent.id
+                sessionEventId: sessionEvent.id,
             };
         } catch (error) {
-            console.error('Error processing session:', error);
+            console.error("Error processing session:", error);
             throw error;
         }
     },
     {
         connection: {
             host: env.REDIS_HOST,
-            port: Number(env.REDIS_PORT || '6379'),
+            port: Number(env.REDIS_PORT || "6379"),
         },
         concurrency: 4,
         removeOnComplete: { count: 1000 },
-        removeOnFail: { count: 5000 }
-    }
-); 
+        removeOnFail: { count: 5000 },
+    },
+);

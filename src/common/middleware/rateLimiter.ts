@@ -14,10 +14,6 @@
 
 // export default rateLimiter;
 
-
-
-
-
 import type { Request } from "express";
 import { rateLimit } from "express-rate-limit";
 
@@ -36,4 +32,4 @@ const limiter = rateLimit({
   skip: (req) => req.method === "POST" && req.path === "/api/event/sessionReceived",
 });
 
-export default limiter;  // Export the pre-created instance
+export default limiter; // Export the pre-created instance

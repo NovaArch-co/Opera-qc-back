@@ -13,7 +13,7 @@ describe("Request Logger Middleware", () => {
     app.get("/success", (req, res) => res.status(StatusCodes.OK).send("Success"));
     app.get("/redirect", (req, res) => res.redirect("/success"));
     app.get("/error", () => {
-      // throw new Error("Test error");
+      throw new Error("Test error");
     });
     app.use(errorHandler());
   });

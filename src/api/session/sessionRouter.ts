@@ -1,11 +1,15 @@
-import express, { type Router } from "express";
 import { ExtendedOpenAPIRegistry } from "@/api-docs/openAPIRegistryBuilders";
 import { createApiResponse } from "@/api-docs/openAPIResponseBuilders";
-import { CreateSessionEventResponseSchema, GetSessionEventsSchema, SessionEventSchema } from "@/api/session/sessionModel"; // Assuming the model file
-import { sessionEventController } from "./session";
+import {
+  CreateSessionEventResponseSchema,
+  GetSessionEventsSchema,
+  SessionEventSchema,
+} from "@/api/session/sessionModel"; // Assuming the model file
+import express, { type Router } from "express";
 import expressBasicAuth from "express-basic-auth";
 import passport from "passport";
 import { z } from "zod";
+import { sessionEventController } from "./session";
 
 export const sessionEventRegistry = new ExtendedOpenAPIRegistry();
 export const sessionEventRouter: Router = express.Router();
@@ -21,7 +25,7 @@ const SessionStatsResponseSchema = z.object({
   top_emotion: z.string().nullable(),
   top_emotion_count: z.number(),
   distinct_categories: z.number(),
-  distinct_topics: z.number()
+  distinct_topics: z.number(),
 });
 
 const DestNumbersResponseSchema = z.array(z.string());
@@ -101,7 +105,7 @@ sessionEventRegistry.registerSecurePath({
       required: false,
       schema: {
         type: "string",
-        enum: ["incoming", "outgoing"]
+        enum: ["incoming", "outgoing"],
       },
     },
   ],
@@ -121,7 +125,8 @@ sessionEventRegistry.registerPath({
     },
   },
   tags: ["SessionEvent"],
-  description: "Submit a new call session event. Note: Only calls with type='incoming' will be processed. Calls with type='outgoing' will be acknowledged but not processed.",
+  description:
+    "Submit a new call session event. Note: Only calls with type='incoming' will be processed. Calls with type='outgoing' will be acknowledged but not processed.",
   responses: {
     "200": {
       description: "Session event received",
@@ -130,16 +135,21 @@ sessionEventRegistry.registerPath({
           schema: z.object({
             success: z.boolean().openapi({ example: true }),
             message: z.string().openapi({ example: "Session event processing started (sequential processing)" }),
-            data: z.object({
-              jobId: z.string().openapi({ example: "process-session-job-12345" }),
-              status: z.string().openapi({ example: "waiting" }),
-              type: z.string().openapi({ example: "incoming" }),
-              processed: z.boolean().optional().openapi({ example: true, description: "Whether the call will be processed. Only true for incoming calls." })
-            }).openapi({ description: "Response data object" }),
-            statusCode: z.number().openapi({ example: 200 })
-          })
-        }
-      }
+            data: z
+              .object({
+                jobId: z.string().openapi({ example: "process-session-job-12345" }),
+                status: z.string().openapi({ example: "waiting" }),
+                type: z.string().openapi({ example: "incoming" }),
+                processed: z.boolean().optional().openapi({
+                  example: true,
+                  description: "Whether the call will be processed. Only true for incoming calls.",
+                }),
+              })
+              .openapi({ description: "Response data object" }),
+            statusCode: z.number().openapi({ example: 200 }),
+          }),
+        },
+      },
     },
     "400": {
       description: "Bad request - missing required fields",
@@ -149,8 +159,8 @@ sessionEventRegistry.registerPath({
     },
     "500": {
       description: "Server error",
-    }
-  }
+    },
+  },
 });
 
 sessionEventRegistry.registerSecurePath({
@@ -192,9 +202,9 @@ sessionEventRegistry.registerSecurePath({
       description: "The filename of the audio file to retrieve",
       required: true,
       schema: {
-        type: "string"
-      }
-    }
+        type: "string",
+      },
+    },
   ],
   responses: {
     "200": {
@@ -203,21 +213,21 @@ sessionEventRegistry.registerSecurePath({
         "audio/wav": {
           schema: {
             type: "string",
-            format: "binary"
-          }
-        }
-      }
+            format: "binary",
+          },
+        },
+      },
     },
     "400": {
-      description: "Invalid filename"
+      description: "Invalid filename",
     },
     "404": {
-      description: "Audio file not found"
+      description: "Audio file not found",
     },
     "500": {
-      description: "Server error"
-    }
-  }
+      description: "Server error",
+    },
+  },
 });
 
 sessionEventRegistry.registerSecurePath({
@@ -231,9 +241,9 @@ sessionEventRegistry.registerSecurePath({
       description: "The filename of the audio file to check",
       required: true,
       schema: {
-        type: "string"
-      }
-    }
+        type: "string",
+      },
+    },
   ],
   responses: {
     "200": {
@@ -241,15 +251,15 @@ sessionEventRegistry.registerSecurePath({
       content: {
         "application/json": {
           schema: {
-            type: "object"
-          }
-        }
-      }
+            type: "object",
+          },
+        },
+      },
     },
     "500": {
-      description: "Server error"
-    }
-  }
+      description: "Server error",
+    },
+  },
 });
 
 sessionEventRegistry.registerSecurePath({
@@ -269,26 +279,61 @@ sessionEventRegistry.registerSecurePath({
 // Basic Auth configuration - UPDATED WITH MULTIPLE CREDENTIALS
 const basicAuthMiddleware = expressBasicAuth({
   users: {
-    'User1': 'hyQ39c8E873MVv5e22E3T355n3bYV5nf',
-    'tipax': 'opera-qc-2024'  // Add the same credentials used by audioRouter
+    User1: "hyQ39c8E873MVv5e22E3T355n3bYV5nf",
+    tipax: "opera-qc-2024", // Add the same credentials used by audioRouter
   },
   challenge: true,
-  realm: 'Opera QC API'
+  realm: "Opera QC API",
 });
 
 /**
  * @todo
  */
-sessionEventRouter.get("/dashboard", passport.authenticate("jwt", { session: false }), sessionEventController.getSessionsByFilter);
-sessionEventRouter.get("/categories", passport.authenticate("jwt", { session: false }), sessionEventController.getDistinctCategories);
-sessionEventRouter.get("/job/:jobId", passport.authenticate("jwt", { session: false }), sessionEventController.getJobStatus);
-sessionEventRouter.get("/topics", passport.authenticate("jwt", { session: false }), sessionEventController.getDistinctTopics);
-sessionEventRouter.get("/stats", passport.authenticate("jwt", { session: false }), sessionEventController.getSessionStats);
-sessionEventRouter.get("/destnumbers", passport.authenticate("jwt", { session: false }), sessionEventController.getDistinctDestNumbers);
-sessionEventRouter.get("/check-audio/:filename", passport.authenticate("jwt", { session: false }), sessionEventController.checkAudioFile);
-sessionEventRouter.get("/audio/:filename", passport.authenticate("jwt", { session: false }), sessionEventController.getAudioFile);
-sessionEventRouter.get("/:id", passport.authenticate("jwt", { session: false }), sessionEventController.getSessionEventById);
+sessionEventRouter.get(
+  "/dashboard",
+  passport.authenticate("jwt", { session: false }),
+  sessionEventController.getSessionsByFilter,
+);
+sessionEventRouter.get(
+  "/categories",
+  passport.authenticate("jwt", { session: false }),
+  sessionEventController.getDistinctCategories,
+);
+sessionEventRouter.get(
+  "/job/:jobId",
+  passport.authenticate("jwt", { session: false }),
+  sessionEventController.getJobStatus,
+);
+sessionEventRouter.get(
+  "/topics",
+  passport.authenticate("jwt", { session: false }),
+  sessionEventController.getDistinctTopics,
+);
+sessionEventRouter.get(
+  "/stats",
+  passport.authenticate("jwt", { session: false }),
+  sessionEventController.getSessionStats,
+);
+sessionEventRouter.get(
+  "/destnumbers",
+  passport.authenticate("jwt", { session: false }),
+  sessionEventController.getDistinctDestNumbers,
+);
+sessionEventRouter.get(
+  "/check-audio/:filename",
+  passport.authenticate("jwt", { session: false }),
+  sessionEventController.checkAudioFile,
+);
+sessionEventRouter.get(
+  "/audio/:filename",
+  passport.authenticate("jwt", { session: false }),
+  sessionEventController.getAudioFile,
+);
+sessionEventRouter.get(
+  "/:id",
+  passport.authenticate("jwt", { session: false }),
+  sessionEventController.getSessionEventById,
+);
 sessionEventRouter.get("/", passport.authenticate("jwt", { session: false }), sessionEventController.getSessions);
 // Update this line to make it more permissive - accept both sets of credentials
 sessionEventRouter.post("/sessionReceived", basicAuthMiddleware, sessionEventController.createSessionEvent);
-
