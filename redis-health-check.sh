@@ -7,6 +7,16 @@ set -euo pipefail
 REDIS_PASSWORD="${REDIS_PASSWORD:-$(cat .redis_password 2>/dev/null || echo '')}"
 LOG_FILE="/var/log/redis/health-check.log"
 
+# Detect Docker Compose command
+if command -v docker &> /dev/null && docker compose version &> /dev/null; then
+    DOCKER_COMPOSE_CMD="docker compose"
+elif command -v docker-compose &> /dev/null; then
+    DOCKER_COMPOSE_CMD="docker-compose"
+else
+    echo "Error: Docker Compose not found"
+    exit 1
+fi
+
 log() {
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" | tee -a "$LOG_FILE"
 }
@@ -39,7 +49,7 @@ check_sentinels_health() {
 # Restart Redis services
 restart_redis_services() {
     log "Restarting Redis services..."
-    docker-compose -f docker-compose.prod.yml restart redis-master redis-sentinel-1 redis-sentinel-2 redis-sentinel-3
+    $DOCKER_COMPOSE_CMD -f docker-compose.prod.yml restart redis-master redis-sentinel-1 redis-sentinel-2 redis-sentinel-3
     sleep 30
 }
 

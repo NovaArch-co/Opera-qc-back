@@ -37,8 +37,15 @@ check_prerequisites() {
         exit 1
     fi
     
-    if ! command -v docker-compose &> /dev/null; then
-        error "Docker Compose is not installed"
+    # Check for Docker Compose V2 (docker compose) or V1 (docker-compose)
+    if command -v docker &> /dev/null && docker compose version &> /dev/null; then
+        DOCKER_COMPOSE_CMD="docker compose"
+        log "Using Docker Compose V2 (docker compose)"
+    elif command -v docker-compose &> /dev/null; then
+        DOCKER_COMPOSE_CMD="docker-compose"
+        log "Using Docker Compose V1 (docker-compose)"
+    else
+        error "Docker Compose is not installed (neither V1 nor V2 found)"
         exit 1
     fi
     
@@ -126,7 +133,7 @@ stop_existing_services() {
     log "Stopping existing services..."
     
     if [ -f docker-compose.yml ]; then
-        docker-compose down || warning "Could not stop existing services"
+        $DOCKER_COMPOSE_CMD down || warning "Could not stop existing services"
     fi
     
     success "Existing services stopped"
@@ -137,7 +144,7 @@ deploy_redis() {
     log "Deploying bulletproof Redis setup..."
     
     # Use the production docker-compose file
-    docker-compose -f docker-compose.prod.yml up -d redis-master redis-sentinel-1 redis-sentinel-2 redis-sentinel-3 redis-backup redis-monitor
+    $DOCKER_COMPOSE_CMD -f docker-compose.prod.yml up -d redis-master redis-sentinel-1 redis-sentinel-2 redis-sentinel-3 redis-backup redis-monitor
     
     # Wait for services to be healthy
     log "Waiting for Redis services to be healthy..."
@@ -174,7 +181,7 @@ deploy_application() {
     log "Deploying application with new Redis configuration..."
     
     # Deploy all services
-    docker-compose -f docker-compose.prod.yml up -d
+    $DOCKER_COMPOSE_CMD -f docker-compose.prod.yml up -d
     
     # Wait for application to be healthy
     log "Waiting for application to be healthy..."
