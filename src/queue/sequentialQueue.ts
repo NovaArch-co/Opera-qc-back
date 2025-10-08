@@ -243,7 +243,7 @@ async function processSessionJob(jobData: any) {
                 queue: queueValue,
                 destChannel: destChannelValue,
                 destNumber: destNumberValue,
-                date: new Date(date),
+                date: new Date(date), // date is now an ISO string from mapFileToSessionData
                 duration,
                 filename,
                 keyWords: [] // Initialize with empty array
@@ -520,7 +520,7 @@ async function processFolderAudioJob(jobData: any) {
                 queue: queue || "",
                 destChannel: destChannel || "",
                 destNumber: destNumber || "",
-                date: new Date(date),
+                date: new Date(date), // date is now an ISO string from mapFileToSessionData
                 duration,
                 filename,
                 keyWords: []

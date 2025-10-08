@@ -43,7 +43,7 @@ export class SessionEventController {
     public createSessionEvent = async (req: Request, res: Response) => {
         try {
             console.log("Webhook call received - DISABLED in demo instance");
-            
+
             // Webhook processing is disabled in demo instance
             // Use /api/event/processVoiceFolder for folder processing instead
             return res.status(StatusCodes.OK).json({
@@ -1131,7 +1131,8 @@ export class SessionEventController {
             const minute = timeStr.substring(2, 4);
             const second = timeStr.substring(4, 6);
 
-            const callDate = `${year}-${month}-${day} ${hour}:${minute}:${second}`;
+            // Create a proper ISO date string that JavaScript can parse reliably
+            const callDate = `${year}-${month}-${day}T${hour}:${minute}:${second}`;
 
             return {
                 type: 'incoming' as const,
@@ -1140,7 +1141,7 @@ export class SessionEventController {
                 queue: 'folder_processing',
                 destChannel: `SIP/${destExt}`,
                 destNumber: destExt,
-                date: new Date(callDate),
+                date: callDate, // Store as ISO string to avoid serialization issues
                 duration: '00:00:00', // We don't have duration info from filename
                 filename: pair.baseFileName,
                 level: 30,
@@ -1160,7 +1161,7 @@ export class SessionEventController {
             queue: 'folder_processing',
             destChannel: 'SIP/unknown',
             destNumber: 'unknown',
-            date: new Date(),
+            date: new Date().toISOString(), // Use ISO string for consistency
             duration: '00:00:00',
             filename: pair.baseFileName,
             level: 30,
