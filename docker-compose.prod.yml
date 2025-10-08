@@ -51,7 +51,14 @@ services:
     volumes:
       - ./redis/sentinel.conf:/usr/local/etc/redis/sentinel.conf:ro
       - ./redis/logs:/var/log/redis
-    command: redis-sentinel /usr/local/etc/redis/sentinel.conf
+    environment:
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-OperaQC2024!Secure}
+    command: >
+      sh -c "
+      echo 'sentinel auth-pass mymaster ${REDIS_PASSWORD:-OperaQC2024!Secure}' >> /tmp/sentinel.conf &&
+      cat /usr/local/etc/redis/sentinel.conf >> /tmp/sentinel.conf &&
+      redis-sentinel /tmp/sentinel.conf
+      "
     networks:
       - app-network
     depends_on:
@@ -73,7 +80,14 @@ services:
     volumes:
       - ./redis/sentinel.conf:/usr/local/etc/redis/sentinel.conf:ro
       - ./redis/logs:/var/log/redis
-    command: redis-sentinel /usr/local/etc/redis/sentinel.conf
+    environment:
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-OperaQC2024!Secure}
+    command: >
+      sh -c "
+      echo 'sentinel auth-pass mymaster ${REDIS_PASSWORD:-OperaQC2024!Secure}' >> /tmp/sentinel.conf &&
+      cat /usr/local/etc/redis/sentinel.conf >> /tmp/sentinel.conf &&
+      redis-sentinel /tmp/sentinel.conf
+      "
     networks:
       - app-network
     depends_on:
@@ -95,7 +109,14 @@ services:
     volumes:
       - ./redis/sentinel.conf:/usr/local/etc/redis/sentinel.conf:ro
       - ./redis/logs:/var/log/redis
-    command: redis-sentinel /usr/local/etc/redis/sentinel.conf
+    environment:
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-OperaQC2024!Secure}
+    command: >
+      sh -c "
+      echo 'sentinel auth-pass mymaster ${REDIS_PASSWORD:-OperaQC2024!Secure}' >> /tmp/sentinel.conf &&
+      cat /usr/local/etc/redis/sentinel.conf >> /tmp/sentinel.conf &&
+      redis-sentinel /tmp/sentinel.conf
+      "
     networks:
       - app-network
     depends_on:
