@@ -63,8 +63,8 @@ export class SessionEventController {
                 });
             }
 
-            // Convert date to ISO format
-            const isoDate = moment(date, 'YYYY-MM-DD HH:mm:ss').toDate();
+            // Convert date to ISO format string to avoid serialization issues
+            const isoDateString = moment(date, 'YYYY-MM-DD HH:mm:ss').format('YYYY-MM-DDTHH:mm:ss');
 
             // Add job to sequential queue instead of the regular queue
             const job = await addSequentialJob('process-session', {
@@ -74,7 +74,7 @@ export class SessionEventController {
                 queue,
                 destChannel: dest_channel,
                 destNumber: dest_number,
-                date: isoDate,
+                date: isoDateString,
                 duration,
                 filename
             });

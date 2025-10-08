@@ -171,7 +171,7 @@ export const sessionWorker = new Worker(
                     queue: queueValue,
                     destChannel: destChannelValue,
                     destNumber: destNumberValue,
-                    date: new Date(date),
+                    date: new Date(date), // date should be an ISO string for proper parsing
                     duration,
                     filename,
                     keyWords: [] // Initialize with empty array
