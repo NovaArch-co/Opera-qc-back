@@ -71,7 +71,13 @@ app.use(requestLogger);
 
 // Routes
 app.use("/api/auth", authRouter);
-app.use("/api/users", passport.authenticate("jwt", { session: false }), userRouter);
+// Mount users router. In production, protect with JWT; in dev/test allow open access to simplify frontend integration.
+if (env.isProduction) {
+  app.use("/api/users", passport.authenticate("jwt", { session: false }), userRouter);
+} else {
+  // No auth in non-production for easier local development
+  app.use("/api/users", userRouter);
+}
 // app.use("/api/sessions", passport.authenticate("jwt", { session: false }), sessionEventRouter);
 app.use("/api/event", sessionEventRouter);
 app.use("/api/sequential", sequentialRouter);

@@ -10,6 +10,7 @@ services:
     command: redis-server --appendonly yes
     networks:
       - app-network
+
   swagger-ui:
     image: swaggerapi/swagger-ui
     container_name: swagger-ui
@@ -21,8 +22,6 @@ services:
       - ./openapi/swagger.json:/openapi/swagger.json:ro
     networks:
       - app-network
-    env_file:
-      - container.env
 
   minio:
     image: minio/minio
@@ -39,23 +38,29 @@ services:
     command: server /data --console-address ":9006"
     networks:
       - app-network
-    env_file:
-      - container.env
 
   postgres:
-    image: postgres:17.2
+    image: bitnamilegacy/postgresql:17.2.0
     container_name: postgres
     restart: always
     environment:
-      POSTGRESQL_DATABASE: ${POSTGRES_DB}
-      POSTGRESQL_USERNAME: ${POSTGRES_USER}
-      POSTGRESQL_PASSWORD: ${POSTGRES_PASSWORD}
-      ALLOW_EMPTY_PASSWORD: "yes"
+      - LC_ALL=en_US.utf8
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRESQL_DATABASE=${POSTGRES_DB} # Note: Bitnami uses POSTGRESQL_DATABASE
+      - POSTGRESQL_USERNAME=${POSTGRES_USER} # Note: Bitnami uses POSTGRESQL_USERNAME
+      - POSTGRESQL_PASSWORD=${POSTGRES_PASSWORD} # Note: Bitnami uses POSTGRESQL_PASSWORD
+      - ALLOW_EMPTY_PASSWORD="yes" # Bitnami specific variable
+      - LANG=en_US.utf8
+      - LC_COLLATE=en_US.utf8
+      - LC_CTYPE=en_US.utf8
+
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/bitnami/postgresql
-    user: root
+      # - postgres_data:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 5s
@@ -65,8 +70,6 @@ services:
       - app-network
     extra_hosts:
       - "host.docker.internal:host-gateway"
-    env_file:
-      - container.env
 
   app:
     build:
@@ -81,7 +84,7 @@ services:
       - NODE_ENV=development
       - HOST=0.0.0.0
       - PORT=8081
-      - SWAGGER_URL=${SWAGGER_URL:-http://31.184.134.153:8081/api/docs}
+      - SWAGGER_URL=${SWAGGER_URL:-http://31.184.134.173:8081/api/docs}
       - COMMON_RATE_LIMIT_MAX_REQUESTS=${COMMON_RATE_LIMIT_MAX_REQUESTS:-1000}
       - COMMON_RATE_LIMIT_WINDOW_MS=${COMMON_RATE_LIMIT_WINDOW_MS:-1000}
       - POSTGRES_HOST=postgres
@@ -89,7 +92,7 @@ services:
       - POSTGRES_DB=${POSTGRES_DB}
       - POSTGRES_USER=${POSTGRES_USER}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
-      - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?client_encoding=UTF8
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - BULL_QUEUE=${BULL_QUEUE:-analyseCalls}
@@ -103,7 +106,9 @@ services:
       - JWT_SECRET=${JWT_SECRET:-your-secret-key}
       - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET:-your-refresh-secret-key}
       - JWT_EXPIRES_IN=${JWT_EXPIRES_IN:-1d}
-      - CORS_ORIGIN=${CORS_ORIGIN:-http://localhost:3000,http://localhost:5173,http://31.184.134.173:8082,http://host.docker.internal:8082, http://host.docker.internal:8081, http://31.184.134.173:8081}
+      - CORS_ORIGIN=${CORS_ORIGIN:-http://localhost:3000,http://localhost:5173,http://31.184.134.173:8082,http://host.docker.internal:8082, http://host.docker.internal:8081, http://31.184.134.173:8081, http://31.184.134.173:8102, http://localhost:8102}
+      - LANG=en_US.utf8
+      - LC_ALL=en_US.utf8
     volumes:
       - ./conversations:/app/conversations:ro
     depends_on:
@@ -118,8 +123,6 @@ services:
       - app-network
     extra_hosts:
       - "host.docker.internal:host-gateway"
-    env_file:
-      - container.env
 
   # operaai:
   #   image: operaasr2:v1.1T

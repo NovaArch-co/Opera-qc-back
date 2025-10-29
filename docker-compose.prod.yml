@@ -1,4 +1,4 @@
-version: '3.8'
+version: "3.8"
 
 services:
   # Primary Redis Instance - Master
@@ -18,7 +18,15 @@ services:
     environment:
       - REDIS_PASSWORD=${REDIS_PASSWORD:-OperaQC2024!Secure}
     healthcheck:
-      test: ["CMD", "redis-cli", "--no-auth-warning", "-a", "${REDIS_PASSWORD:-OperaQC2024!Secure}", "ping"]
+      test:
+        [
+          "CMD",
+          "redis-cli",
+          "--no-auth-warning",
+          "-a",
+          "${REDIS_PASSWORD:-OperaQC2024!Secure}",
+          "ping",
+        ]
       interval: 10s
       timeout: 3s
       retries: 3
@@ -36,10 +44,10 @@ services:
       resources:
         limits:
           memory: 3G
-          cpus: '2.0'
+          cpus: "2.0"
         reservations:
           memory: 1G
-          cpus: '0.5'
+          cpus: "0.5"
 
   # Redis Sentinel for High Availability
   redis-sentinel-1:
@@ -241,7 +249,7 @@ services:
       - NODE_ENV=production
       - HOST=0.0.0.0
       - PORT=8081
-      - SWAGGER_URL=${SWAGGER_URL:-http://31.184.134.153:8081/api/docs}
+      - SWAGGER_URL=${SWAGGER_URL:-http://host.docker.internal:8081/api/docs}
       - COMMON_RATE_LIMIT_MAX_REQUESTS=${COMMON_RATE_LIMIT_MAX_REQUESTS:-1000}
       - COMMON_RATE_LIMIT_WINDOW_MS=${COMMON_RATE_LIMIT_WINDOW_MS:-1000}
       - POSTGRES_HOST=postgres
